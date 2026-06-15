@@ -309,7 +309,7 @@ function PaybackChart({
               fontSize: 10,
               padding: '4px 8px',
             }}
-            formatter={(val: number | undefined, name: string) => [`$${val ?? 0}k`, name === 'ahorro' ? 'Ahorro acum.' : name === 'costo' ? 'Inversión' : 'Neto'] as [string, string]}
+            formatter={(val, name) => [`$${typeof val === 'number' ? val : 0}k`, String(name) === 'ahorro' ? 'Ahorro acum.' : String(name) === 'costo' ? 'Inversión' : 'Neto'] as [string, string]}
             labelFormatter={(l) => `Año ${l}`}
           />
           <ReferenceLine x={breakEvenYear} stroke="#f59e0b" strokeDasharray="3 3" strokeWidth={1.5} />
