@@ -86,17 +86,13 @@ function GoogleMap() {
       if (pos) updateUbicacion({ lat: pos.lat(), lng: pos.lng() });
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as any).__ggMapMarker = marker;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as any).__ggMapInstance = map;
   }
 
   // Mueve el pin si la dirección cambia desde el autocomplete.
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const marker = (window as any).__ggMapMarker;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const map = (window as any).__ggMapInstance;
     if (marker && map && ubicacion.lat != null && ubicacion.lng != null) {
       const pos = { lat: ubicacion.lat, lng: ubicacion.lng };
@@ -126,16 +122,13 @@ function LeafletMap() {
   // Guardamos las instancias en refs para que no se re-creen en cada render.
   // Tipamos como `any` porque @types/leaflet se instala vía `npm install` en
   // el proyecto del usuario; en tiempo de compilación de tsc no es necesario.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const markerRef = useRef<any>(null);
 
   // Inicializa el mapa la primera vez (importación dinámica para evitar SSR).
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     import('leaflet').then((mod: any) => {
       const L = mod.default ?? mod;
       if (!containerRef.current || mapRef.current) return;
