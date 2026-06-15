@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 48" fill="none">
+  <rect width="180" height="48" rx="8" fill="#009EE3"/>
+  <text x="12" y="20" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" fill="white" letter-spacing="0.5">mercado</text>
+  <text x="12" y="36" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="700" fill="white" letter-spacing="0.5">pago</text>
+  <!-- MP icon -->
+  <circle cx="158" cy="24" r="16" fill="white" opacity="0.15"/>
+  <text x="149" y="29" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="900" fill="white">MP</text>
+</svg>
