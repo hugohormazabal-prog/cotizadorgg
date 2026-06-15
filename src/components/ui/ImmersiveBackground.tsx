@@ -24,8 +24,8 @@ export function ImmersiveBackground() {
             "url('https://images.unsplash.com/photo-1509391366360-2e959784a276?q=80&w=2400&auto=format&fit=crop')",
         }}
       />
-      {/* Overlay mínimo — solo para que el texto del header sea legible */}
-      <div className="absolute inset-0" style={{ background: 'rgba(255,255,255,0.18)' }} />
+      {/* Overlay para legibilidad del texto */}
+      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.32)' }} />
 
       {/* Resplandores flotantes suaves */}
       <motion.div

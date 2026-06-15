@@ -1,6 +1,8 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
+import Image from 'next/image';
+import { ShieldCheck, Zap, Sun, Award } from 'lucide-react';
 import { ImmersiveBackground } from '@/components/ui/ImmersiveBackground';
 import { ExitIntentModal } from '@/components/ui/ExitIntentModal';
 import { ProgressBar } from '@/components/ui/ProgressBar';
@@ -46,13 +48,17 @@ export function Cotizador() {
       <div className="w-full max-w-2xl flex flex-col gap-3">
         {/* Header */}
         <header className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-amber-400 text-xs font-extrabold text-ink-950 shadow-glow">
-              GG
-            </span>
-            <div className="leading-tight">
+          <div className="flex items-center gap-2.5">
+            <Image
+              src="/images/logo-gg.png"
+              alt="GG Electrics"
+              width={36}
+              height={36}
+              className="rounded-xl"
+            />
+            <div className="leading-tight" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.55)' }}>
               <p className="text-sm font-bold tracking-wide text-white">GG Electrics</p>
-              <p className="text-[10px] uppercase tracking-[0.18em] text-white/60">Cotizador Solar</p>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-white/70">Cotizador Solar</p>
             </div>
           </div>
           {/* Live savings ticker — aparece cuando hay región y consumo */}
@@ -108,16 +114,16 @@ export function Cotizador() {
         </div>
 
         {/* Trust strip */}
-        <div className="flex items-center justify-center gap-4 flex-wrap px-2">
-          {[
-            { icon: '🔒', text: 'Instaladores SEC Certificados' },
-            { icon: '⚡', text: 'Net Billing CDEC' },
-            { icon: '☀️', text: 'Garantía 25 años paneles' },
-            { icon: '🏆', text: '+500 instalaciones' },
-          ].map(({ icon, text }) => (
+        <div className="flex items-center justify-center gap-5 flex-wrap px-2" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
+          {([
+            { Icon: ShieldCheck, text: 'Instaladores SEC Certificados' },
+            { Icon: Zap,         text: 'Net Billing CDEC' },
+            { Icon: Sun,         text: 'Garantía 25 años paneles' },
+            { Icon: Award,       text: '+500 instalaciones' },
+          ] as const).map(({ Icon, text }) => (
             <div key={text} className="flex items-center gap-1.5">
-              <span className="text-xs">{icon}</span>
-              <span className="text-[10px] font-medium text-white/55 tracking-wide">{text}</span>
+              <Icon className="h-3 w-3 text-amber-300 shrink-0" strokeWidth={2} />
+              <span className="text-[10px] font-medium text-white/75 tracking-wide">{text}</span>
             </div>
           ))}
         </div>
