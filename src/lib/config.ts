@@ -83,7 +83,11 @@ export interface ConfigCotizador {
   cuotasSantander: number;        // Número de cuotas. Ej: 48
 
   // Financiamiento — Crédito largo plazo (ALZA)
-  ratioAhorroCuotaALZA: number;   // ahorro_mensual / cuota_mensual. Ej: 1.1506
+  // factorCuotaMensualALZA = cuota_mensual / precio_proyecto
+  // Derivado de PMT(0.531674%, 300, capitalALZA*(1+0.531674%)^3)
+  // donde capitalALZA = precioProyecto * 1.7384 (incluye fee 23.8% + garantía bancaria + gastos)
+  // Valor verificado contra Excel: $3,919,001 → cuota $46,223 (factor = 0.011804)
+  factorCuotaMensualALZA: number; // cuota_mensual / precio_proyecto. Ej: 0.011804
   cuotasALZA: number;             // Número de cuotas totales. Ej: 300
 
   // Garantías
@@ -110,7 +114,7 @@ export const CONFIG_DEFAULT: ConfigCotizador = {
   panelMarcaModelo: 'Longi 620 W',
 
   limiteAutoconsumo: 0.50,
-  factorGeneracion: 1.585,
+  factorGeneracion: 1.494, // corregido desde 1.585 — valor implícito del Excel (auditoría)
 
   costoPorKwpClpIva: 1_053_495,
   margen: 0.2111,
@@ -124,7 +128,7 @@ export const CONFIG_DEFAULT: ConfigCotizador = {
   factorSantander: 1.1832,
   cuotasSantander: 48,
 
-  ratioAhorroCuotaALZA: 1.1506,
+  factorCuotaMensualALZA: 0.011804,
   cuotasALZA: 300,
 
   garantiaPaneles: 12,

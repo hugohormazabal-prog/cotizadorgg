@@ -167,7 +167,9 @@ export function calcularCotizacion(params: {
   const totalMP = Math.round(precioProyectoClp * cfg.factorMP);
   const cuotaMP = Math.round(totalMP / cfg.cuotasMP);
   const cuotaSantander = Math.round(totalMP / cfg.cuotasSantander);
-  const cuotaALZA = Math.round(ahorroMensualProm / cfg.ratioAhorroCuotaALZA);
+  // Cuota ALZA = precio_proyecto × factor derivado de PMT(0.531674%, 300, capital*(1+r)^3)
+  // donde capital = precio * 1.7384 (incluye fee 23.8% + garantía + gastos ALZA)
+  const cuotaALZA = Math.round(precioProyectoClp * cfg.factorCuotaMensualALZA);
   const ahorroRealMensualALZA = ahorroMensualProm - cuotaALZA;
   const porcAhorroALZA = Math.round((ahorroRealMensualALZA / gastoCuentaClpMensual) * 100);
   const descPct = Math.round(cfg.descuentoTransferencia * 100 * 10) / 10;

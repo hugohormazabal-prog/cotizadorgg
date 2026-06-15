@@ -314,8 +314,8 @@ export default function MantenedorPage() {
             <div>
               <p className="mb-2 text-xs font-semibold text-amber-600">Crédito Largo Plazo (ALZA)</p>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Ratio ahorro/cuota" hint="ahorro_mensual / cuota_mensual. Default: 1.1506">
-                  <NumberInput value={cfg.ratioAhorroCuotaALZA} onChange={(v) => patch('ratioAhorroCuotaALZA', v)} min={1} max={3} step={0.001} />
+                <Field label="Factor cuota mensual ALZA" hint="cuota_mensual / precio_proyecto. PMT derivado del Excel. Default: 0.011804">
+                  <NumberInput value={cfg.factorCuotaMensualALZA} onChange={(v) => patch('factorCuotaMensualALZA', v)} min={0.001} max={0.1} step={0.000001} />
                 </Field>
                 <Field label="N° cuotas ALZA" hint="Default: 300 (25 años)">
                   <NumberInput value={cfg.cuotasALZA} onChange={(v) => patch('cuotasALZA', v)} min={12} max={360} />
