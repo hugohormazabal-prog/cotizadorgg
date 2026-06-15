@@ -58,7 +58,10 @@ export function Cotizador() {
             />
             <div className="leading-tight" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.55)' }}>
               <p className="text-sm font-bold tracking-wide text-white">GG Electrics</p>
-              <p className="text-[10px] uppercase tracking-[0.18em] text-white/70">Cotizador Solar</p>
+              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-amber-300"
+                style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
+                Cotizador Solar
+              </span>
             </div>
           </div>
           {/* Live savings ticker — aparece cuando hay región y consumo */}
