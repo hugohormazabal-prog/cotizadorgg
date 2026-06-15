@@ -161,9 +161,9 @@ export function Step4Ubicacion() {
                 className="overflow-hidden"
               >
                 <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-sky-400/30 bg-sky-500/10 px-3 py-2">
-                  <span className="text-base">👥</span>
+                  <span className="text-base">📍</span>
                   <p className="text-xs text-sky-700">
-                    <span className="font-bold">{socialCount} personas</span> en tu región cotizaron este mes
+                    <span className="font-bold">{socialCount} proyectos instalados</span> en tu región durante los últimos 12 meses
                   </p>
                 </div>
               </motion.div>
