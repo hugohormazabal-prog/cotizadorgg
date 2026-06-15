@@ -197,6 +197,7 @@ export function NominatimAutocomplete() {
           type="text"
           role="combobox"
           aria-autocomplete="list"
+          aria-controls="nominatim-listbox"
           aria-expanded={open}
           aria-haspopup="listbox"
           autoComplete="off"
@@ -226,6 +227,7 @@ export function NominatimAutocomplete() {
       {/* Dropdown — z-index alto para aparecer sobre el mapa Leaflet */}
       {open && results.length > 0 && (
         <ul
+          id="nominatim-listbox"
           role="listbox"
           className="absolute mt-1 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 shadow-xl"
           style={{ zIndex: 9999 }}
