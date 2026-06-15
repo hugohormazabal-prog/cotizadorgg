@@ -10,7 +10,7 @@ import { RoofIcon, CarportIcon, GroundIcon } from '@/components/icons/PropertyIc
 
 const UBICACIONES: { value: UbicacionPaneles; title: string; description: string; icon: JSX.Element }[] = [
   { value: 'techo', title: 'Techo', description: 'Sobre la cubierta de la edificación.', icon: <RoofIcon /> },
-  { value: 'carport', title: 'Carport', description: 'Estructura sobre estacionamiento.', icon: <CarportIcon /> },
+  { value: 'carport', title: 'Estacionamiento', description: 'Estructura sobre estacionamiento.', icon: <CarportIcon /> },
   { value: 'suelo', title: 'Suelo', description: 'Estructura montada a nivel de terreno.', icon: <GroundIcon /> },
 ];
 
