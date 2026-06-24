@@ -47,12 +47,15 @@ create table if not exists public.cotizaciones (
   monto_clp numeric,
   consumo_kwh numeric,
 
-  -- Estimaciones calculadas en el momento del envío (referenciales — ver
-  -- src/lib/estimaciones.ts; reemplazar cuando exista la lógica definitiva)
+  -- Estimaciones calculadas en el momento del envío (ver src/lib/estimaciones.ts
+  -- y src/lib/submitCotizacion.ts — los nombres deben coincidir exactamente
+  -- con el payload que arma submitCotizacion.ts)
   estimacion_consumo_kwh_mensual numeric,
-  estimacion_capacidad_sugerida_kw numeric,
+  estimacion_capacidad_kwp numeric,
+  estimacion_paneles integer,
   estimacion_ahorro_mensual_clp numeric,
-  estimacion_inversion_referencial_clp numeric,
+  estimacion_precio_proyecto_clp numeric,
+  estimacion_payback_anios numeric,
 
   -- Etapa 6: Resumen
   acepta_terminos boolean not null default false,
