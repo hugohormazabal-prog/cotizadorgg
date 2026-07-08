@@ -68,7 +68,7 @@ export function Cotizador() {
           <AnimatePresence mode="wait">
             {liveAhorro ? (
               <motion.div
-                key={liveAhorro.ahorroMensual}
+                key="live"
                 initial={{ opacity: 0, y: -6, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 6 }}
