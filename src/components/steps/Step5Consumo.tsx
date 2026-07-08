@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, TrendingDown, SunMedium, Clock } from 'lucide-react';
+import { Zap, SunMedium, Clock, TrendingDown } from 'lucide-react';
 import clsx from 'clsx';
 import { StepShell } from './StepShell';
 import { StepNavButtons } from './StepNavButtons';
@@ -119,89 +119,42 @@ export function Step5Consumo() {
           </div>
         </div>
 
-        {/* Simulador de cuenta de luz */}
+        {/* Ahorro estimado — UN SOLO número, el "Ahorro Total" del Excel
+            (autoconsumo + inyección / net billing). Se muestra igual en el
+            header. No mostramos cifras parciales aquí para no confundir. */}
         <AnimatePresence>
-          {estimacion && consumo.unidad === 'clp' && consumo.montoClp && (
+          {estimacion && (
             <motion.div
-              key="bill-sim"
+              key="ahorro-hero"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className="rounded-xl border border-white/40 bg-white/40 p-3"
+              className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-400/20 via-amber-300/10 to-transparent p-5 text-center shadow-glow-amber"
             >
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Tu cuenta de luz con solar ☀️
-              </p>
-              {/* Fila principal: Hoy → Con solar + % ahorro en cuenta */}
-              <div className="flex items-center justify-between gap-3">
-                {/* Cuenta actual — tachada */}
-                <div className="flex flex-col items-center">
-                  <span className="text-[9px] text-slate-400 uppercase tracking-wide mb-0.5">Hoy</span>
-                  <div className="relative">
-                    <span className="text-lg font-bold text-slate-400 tabular-nums">
-                      {formatCLP(consumo.montoClp)}
-                    </span>
-                    <motion.div
-                      initial={{ scaleX: 0 }}
-                      animate={{ scaleX: 1 }}
-                      transition={{ delay: 0.2, duration: 0.4, ease: 'easeOut' }}
-                      className="absolute top-1/2 left-0 right-0 h-[2px] bg-red-400/70 origin-left"
-                    />
-                  </div>
-                  <span className="text-[9px] text-slate-400">/mes</span>
-                </div>
+              {/* halo decorativo */}
+              <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-400/20 blur-3xl" />
 
-                {/* Flecha animada */}
-                <motion.div
-                  animate={{ x: [0, 4, 0] }}
-                  transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
-                  className="text-amber-400 text-lg"
-                >
-                  →
-                </motion.div>
-
-                {/* Cuenta con solar — muestra solo el residual después de autoconsumo */}
-                <div className="flex flex-col items-center">
-                  <span className="text-[9px] text-slate-400 uppercase tracking-wide mb-0.5">Con solar</span>
-                  <motion.span
-                    key={estimacion.ahorroAutoconsumoMensual}
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="text-lg font-extrabold text-emerald-600 tabular-nums"
-                  >
-                    {formatCLP(Math.max(0, (consumo.montoClp ?? 0) - estimacion.ahorroAutoconsumoMensual))}
-                  </motion.span>
-                  <span className="text-[9px] text-slate-400">/mes</span>
-                </div>
-
-                {/* Badge — ahorro en cuenta (autoconsumo) */}
-                <div className="flex flex-col items-center rounded-lg border border-amber-400/40 bg-amber-400/15 px-2.5 py-1.5">
-                  <span className="text-[9px] text-amber-600 uppercase tracking-wide font-semibold">Ahorras</span>
-                  <motion.span
-                    key={estimacion.ahorroAutoconsumoMensual}
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="text-sm font-extrabold text-amber-600 tabular-nums"
-                  >
-                    {formatCLP(estimacion.ahorroAutoconsumoMensual)}
-                  </motion.span>
-                  <span className="text-[9px] text-amber-500 font-medium">
-                    {Math.min(100, Math.round((estimacion.ahorroAutoconsumoMensual / (consumo.montoClp || 1)) * 100))}% menos
-                  </span>
-                </div>
+              <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-amber-400/25 text-amber-600">
+                <TrendingDown className="h-5 w-5" strokeWidth={2.2} />
               </div>
-
-              {/* Net billing — ingreso adicional separado */}
-              {estimacion.ahorroInyeccionMensual > 0 && (
-                <div className="mt-2 flex items-center gap-2 rounded-lg border border-sky-400/30 bg-sky-500/10 px-2.5 py-1.5">
-                  <span className="text-sm">⚡</span>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[9px] font-semibold text-sky-700 uppercase tracking-wide">Ingreso net billing</span>
-                    <p className="text-[10px] text-sky-600">Recibes <span className="font-bold">{formatCLP(estimacion.ahorroInyeccionMensual)}/mes</span> por energía inyectada a la red</p>
-                  </div>
-                </div>
-              )}
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-amber-600">
+                Tu ahorro estimado con solar
+              </p>
+              <motion.p
+                key={estimacion.ahorroMensual}
+                initial={{ scale: 0.92, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+                className="mt-1 text-[2rem] leading-none font-extrabold text-amber-700 tabular-nums sm:text-4xl"
+              >
+                {formatCLP(estimacion.ahorroMensual)}
+                <span className="text-base font-semibold text-amber-600">/mes</span>
+              </motion.p>
+              <p className="mx-auto mt-2.5 max-w-md text-[11px] leading-snug text-slate-500">
+                Estimación según el modelo de cálculo de GG Electrics para tu zona y consumo.
+                Incluye el ahorro en tu cuenta y el ingreso por la energía que inyectas a la red.
+              </p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -215,10 +168,7 @@ export function Step5Consumo() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className={clsx(
-                'grid gap-2 sm:grid-cols-2',
-                detallada ? '' : 'lg:grid-cols-4'
-              )}
+              className={clsx('grid gap-2', detallada ? 'grid-cols-1' : 'sm:grid-cols-3')}
             >
               <EstimacionCard
                 icon={<SunMedium className="h-4 w-4" />}
@@ -226,14 +176,9 @@ export function Step5Consumo() {
                 value={`${estimacion.capacidadKwp.toFixed(2)} kWp`}
                 sub={`${estimacion.numeroPaneles} paneles`}
               />
-              <EstimacionCard
-                icon={<TrendingDown className="h-4 w-4" />}
-                label="Ahorro mensual est."
-                value={formatCLP(estimacion.ahorroMensual)}
-                accent
-              />
               {/* Precios/retorno solo para flujo residencial. Empresa/depto
-                  reciben cotización a detalle y no ven oferta de precio. */}
+                  reciben cotización a detalle y no ven oferta de precio.
+                  El ahorro ya se muestra arriba como número único. */}
               {!detallada && (
                 <>
                   <EstimacionCard
