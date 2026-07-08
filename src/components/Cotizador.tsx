@@ -56,8 +56,15 @@ export function Cotizador() {
       <ExitIntentModal />
 
       <div className="w-full max-w-2xl flex flex-col gap-3">
-        {/* Header */}
-        <header className="flex items-center justify-between px-1">
+        {/* Header — sticky para mantener visible la marca y el ahorro estimado */}
+        <header
+          className="sticky top-0 z-30 -mx-1 flex items-center justify-between rounded-2xl px-3 py-2"
+          style={{
+            background: 'rgba(10,22,40,0.45)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+          }}
+        >
           <div className="flex items-center gap-2.5">
             <Image
               src="/images/logo-gg.png"
@@ -110,24 +117,25 @@ export function Cotizador() {
         <div className="glass-panel w-full rounded-2xl shadow-glow" style={{ padding: '24px 28px' }}>
           <ProgressBar />
 
-          {/* Área de step — overflow hidden para animación de slide, flujo normal para altura */}
+          {/* Área de step. Usamos un motion.div con `key={step}` (sin
+              AnimatePresence mode="wait") para que el paso nuevo monte y se
+              anime SIEMPRE al cambiar de paso. El patrón anterior con
+              mode="wait" podía quedarse esperando la animación de salida y
+              dejar el contenido en blanco. */}
           <div className="relative overflow-hidden mt-5">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={step}
-                initial={{ opacity: 0, x: 24 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -24 }}
-                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <StepComponent />
-              </motion.div>
-            </AnimatePresence>
+            <motion.div
+              key={step}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <StepComponent />
+            </motion.div>
           </div>
         </div>
 
         {/* Trust strip */}
-        <div className="flex items-center justify-center gap-5 flex-wrap px-2" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
+        <div className="flex items-center justify-center gap-x-4 gap-y-1.5 flex-wrap px-2" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
           {([
             { Icon: ShieldCheck, text: 'Instaladores SEC Certificados' },
             { Icon: Zap,         text: 'Net Billing CDEC' },

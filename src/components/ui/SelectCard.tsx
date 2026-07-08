@@ -22,6 +22,7 @@ export function SelectCard({ selected, onSelect, icon, title, description }: Sel
       transition={{ type: 'spring', stiffness: 360, damping: 24 }}
       className={clsx(
         'group relative flex flex-col items-start gap-1.5 overflow-hidden rounded-xl border p-2.5 text-left transition-colors duration-300',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
         selected
           ? 'border-amber-400/70 bg-amber-400/10 shadow-glow-amber'
           : 'border-white/40 bg-white/40 hover:border-sky-400/50 hover:bg-white/60'

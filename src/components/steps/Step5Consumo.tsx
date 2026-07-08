@@ -207,7 +207,7 @@ export function Step5Consumo() {
         </AnimatePresence>
 
         {/* Estimaciones en tiempo real */}
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           {estimacion ? (
             <motion.div
               key="estimacion"

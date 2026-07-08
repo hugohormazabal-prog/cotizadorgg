@@ -5,22 +5,43 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useCotizadorStore } from '@/lib/store';
 
+// Se muestra UNA sola vez por dispositivo (persistido). No vuelve a aparecer.
+const SEEN_KEY = 'gg-exit-intent-seen';
+
 export function ExitIntentModal() {
   const [shown, setShown] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [armed, setArmed] = useState(false); // se activa tras unos segundos, no de inmediato
   const step = useCotizadorStore((s) => s.step);
   const status = useCotizadorStore((s) => s.status);
   const contacto = useCotizadorStore((s) => s.data.contacto);
   const [email, setEmail] = useState('');
   const [saved, setSaved] = useState(false);
 
-  const canShow = step >= 2 && status !== 'success' && !dismissed;
+  const markSeen = useCallback(() => {
+    try { localStorage.setItem(SEEN_KEY, '1'); } catch { /* noop */ }
+  }, []);
+
+  const alreadySeen = () => {
+    try { return localStorage.getItem(SEEN_KEY) === '1'; } catch { return false; }
+  };
+
+  // Se arma recién a los 8 s, para no interrumpir apenas entran.
+  useEffect(() => {
+    const t = setTimeout(() => setArmed(true), 8000);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Solo en pasos avanzados (5+), una vez, y si aún no lo vieron.
+  const canShow =
+    armed && step >= 5 && status === 'editing' && !dismissed && !shown && !alreadySeen();
 
   const handleMouseLeave = useCallback((e: MouseEvent) => {
-    if (e.clientY <= 10 && canShow && !shown) {
+    if (e.clientY <= 10 && canShow) {
       setShown(true);
+      markSeen();
     }
-  }, [canShow, shown]);
+  }, [canShow, markSeen]);
 
   useEffect(() => {
     document.addEventListener('mouseleave', handleMouseLeave);
@@ -83,9 +104,9 @@ export function ExitIntentModal() {
 
               {!saved ? (
                 <>
-                  <h3 className="text-lg font-bold text-slate-900">¡Casi terminas!</h3>
+                  <h3 className="text-lg font-bold text-slate-900">¿Te guardamos el avance?</h3>
                   <p className="mt-1.5 text-sm text-slate-600">
-                    Guardamos tu cotización y te la enviamos por email para que puedas continuar cuando quieras.
+                    Si quieres, te enviamos tu estimación al correo para retomarla cuando te acomode. Sin compromiso.
                   </p>
 
                   <div className="mt-4 flex gap-2">

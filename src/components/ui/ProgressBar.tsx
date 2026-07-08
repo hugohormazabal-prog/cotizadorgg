@@ -14,9 +14,22 @@ export function ProgressBar() {
   const goToStep = useCotizadorStore((s) => s.goToStep);
 
   const progressPct = ((step - 1) / (TOTAL_COTIZADOR_STEPS - 1)) * 100;
+  const pctCompletado = Math.round((step / TOTAL_COTIZADOR_STEPS) * 100);
 
   return (
     <div className="w-full">
+      {/* Encabezado paso + % — útil sobre todo en móvil, donde los labels
+          bajo los puntos se ocultan */}
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+          Paso {step} de {TOTAL_COTIZADOR_STEPS}
+          <span className="ml-1.5 font-bold text-amber-600 sm:hidden">{LABELS[step - 1]}</span>
+        </span>
+        <span className="text-[10px] font-bold tabular-nums text-slate-500">
+          {pctCompletado}<span className="font-medium text-slate-400">% completado</span>
+        </span>
+      </div>
+
       {/* Barra de progreso */}
       <div className="relative mb-1.5 h-[3px] w-full overflow-hidden rounded-full bg-black/10">
         <motion.div
