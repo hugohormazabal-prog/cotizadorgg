@@ -4,7 +4,8 @@ import { useMemo, useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useCotizadorStore } from '@/lib/store';
 import { calcularCotizacion, formatCLP, formatKwh } from '@/lib/estimaciones';
-import { getConfig } from '@/lib/config';
+import { fasesPorTipoPropiedad, requiereCotizacionDetallada } from '@/lib/config';
+import { useConfig } from '@/lib/useConfig';
 import type { Region } from '@/lib/config';
 import type { CotizacionCompleta } from '@/lib/estimaciones';
 
@@ -83,7 +84,8 @@ function StatBox({ label, value, sub, accent }: { label: string; value: string; 
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function CotizacionPage() {
-  const { contacto, ubicacion, consumo } = useCotizadorStore((s) => s.data);
+  const { contacto, ubicacion, consumo, propiedad } = useCotizadorStore((s) => s.data);
+  const { config, version } = useConfig();
   const [mounted, setMounted] = useState(false);
   const [cotNum] = useState(() => Math.floor(15000 + Math.random() * 1000));
 
@@ -94,9 +96,11 @@ export default function CotizacionPage() {
     return calcularCotizacion({
       ...consumo,
       region: ubicacion.region as Region,
-      config: getConfig(),
+      fases: fasesPorTipoPropiedad(propiedad.tipoPropiedad),
+      config,
     });
-  }, [mounted, consumo, ubicacion.region]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, consumo, ubicacion.region, propiedad.tipoPropiedad, config, version]);
 
   const fecha = new Date().toLocaleDateString('es-CL', {
     day: '2-digit', month: 'long', year: 'numeric',
@@ -105,6 +109,29 @@ export default function CotizacionPage() {
   const nombreCliente = contacto.nombreCompleto || 'Cliente';
 
   if (!mounted) return null;
+
+  // Empresa/Departamento: no se muestra documento de precios. Requieren
+  // cotización a detalle preparada por un especialista.
+  if (requiereCotizacionDetallada(propiedad.tipoPropiedad)) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-6 print:hidden">
+        <div className="max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
+          <h1 className="text-lg font-bold text-[#1B2B4B]">Cotización a detalle</h1>
+          <p className="mt-3 text-sm text-gray-600">
+            Los proyectos de empresa y departamento se cotizan a medida. No generamos un documento
+            de precios automático: un especialista de GG Electrics preparará tu propuesta técnica y
+            comercial a partir de los datos que dejaste.
+          </p>
+          <a
+            href="/"
+            className="mt-5 inline-block rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            ← Volver al cotizador
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 py-8 print:bg-white print:py-0">

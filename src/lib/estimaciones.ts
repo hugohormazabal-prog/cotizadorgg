@@ -8,7 +8,12 @@ import {
   type Region,
   CONFIG_DEFAULT,
   getGeneracionPorZona,
+  getFactorGeneracion,
+  precioInyeccionKwhClp,
 } from './config';
+
+/** Número de fases de la instalación. 1 = monofásico (casa/depto), 3 = trifásico (empresa). */
+export type Fases = 1 | 3;
 
 // ---------------------------------------------------------------------------
 // Formateo
@@ -93,17 +98,21 @@ export function calcularCotizacion(params: {
   consumoKwh: number | null;
   unidad: 'clp' | 'kwh';
   region: Region;
+  /** Fases de la instalación (1 monofásico / 3 trifásico). Default 1. */
+  fases?: Fases;
   config?: ConfigCotizador;
 }): CotizacionCompleta | null {
   const { montoClp, consumoKwh, unidad, region } = params;
   const cfg = params.config ?? CONFIG_DEFAULT;
+  const fases: Fases = params.fases ?? 1;
+  const precioIny = precioInyeccionKwhClp(cfg);
 
-  // 1. Calcular consumo mensual en kWh
+  // 1. Calcular consumo mensual en kWh (aplica proyección del Excel: INPUT!B18)
   const consumoKwhMensual =
     unidad === 'kwh'
-      ? consumoKwh
+      ? (consumoKwh != null ? consumoKwh * cfg.proyeccionConsumo : null)
       : montoClp != null
-      ? montoClp / cfg.precioKwhClp
+      ? (montoClp / cfg.precioKwhClp) * cfg.proyeccionConsumo
       : null;
 
   if (!consumoKwhMensual || consumoKwhMensual <= 0) return null;
@@ -116,12 +125,21 @@ export function calcularCotizacion(params: {
   const consumoKwhAnual = consumoKwhMensual * 12;
 
   // 2. Dimensionar sistema
-  // Fórmula derivada del Excel: capacity_kwp = consumo_anual * factorGeneracion / genAnualPorKwp
+  // El "factor de sobredimensionamiento" se DERIVA de las tarifas y el límite
+  // de autoconsumo (ver getFactorGeneracion en config.ts). No es una constante.
   const panelKwp = cfg.panelPotenciaW / 1000;
   const genAnual = getGeneracionPorZona()[region].reduce((a, b) => a + b, 0); // kWh/kWp/año
+  const factorGen = getFactorGeneracion(cfg);
 
-  const capacidadKwpTeorica = (consumoKwhAnual * cfg.factorGeneracion) / genAnual;
-  const numeroPaneles = Math.max(1, Math.ceil(capacidadKwpTeorica / panelKwp));
+  const capacidadKwpTeorica = (consumoKwhAnual * factorGen) / genAnual;
+  let numeroPaneles = Math.max(1, Math.ceil(capacidadKwpTeorica / panelKwp));
+
+  // Tope de paneles en monofásico (Excel COTBACK!D53). En trifásico (empresa)
+  // no aplica el límite, por eso el flujo empresa dimensiona sistemas mayores.
+  if (fases === 1) {
+    numeroPaneles = Math.min(numeroPaneles, cfg.maxPanelesMonofasico);
+  }
+
   const capacidadKwp = numeroPaneles * panelKwp;
 
   const generacionAnualKwh = capacidadKwp * genAnual;
@@ -147,7 +165,7 @@ export function calcularCotizacion(params: {
 
   // 3. Calcular ahorros (año 1, en CLP)
   const ahorroAutoconsumoAnual = autoconsumoAnualKwh * cfg.precioKwhClp;
-  const ahorroInyeccionAnual = inyeccionAnualKwh * cfg.precioInyeccionKwhClp;
+  const ahorroInyeccionAnual = inyeccionAnualKwh * precioIny;
   const ahorroTotalAnual = ahorroAutoconsumoAnual + ahorroInyeccionAnual;
   const ahorroMensualProm = ahorroTotalAnual / 12;
 
@@ -263,6 +281,7 @@ export function estimarRapido(params: {
   consumoKwh: number | null;
   unidad: 'clp' | 'kwh';
   region: Region;
+  fases?: Fases;
   config?: ConfigCotizador;
 }): EstimacionRapida | null {
   const cot = calcularCotizacion(params);

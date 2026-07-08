@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/Button';
 import { useCotizadorStore } from '@/lib/store';
 import { submitCotizacion } from '@/lib/submitCotizacion';
 import { calcularCotizacion, formatCLP, formatKwh } from '@/lib/estimaciones';
-import { getConfig } from '@/lib/config';
+import { fasesPorTipoPropiedad, requiereCotizacionDetallada } from '@/lib/config';
+import { useConfig } from '@/lib/useConfig';
 import type { Region } from '@/lib/config';
 import type { FinanciamientoOpcion } from '@/lib/estimaciones';
 
@@ -23,13 +24,21 @@ export function Step6Resumen() {
   const errorMessage = useCotizadorStore((s) => s.errorMessage);
   const setStatus = useCotizadorStore((s) => s.setStatus);
   const data = useCotizadorStore((s) => s.data);
+  const { config, version } = useConfig();
+  const detallada = requiereCotizacionDetallada(data.propiedad.tipoPropiedad);
   const [submitting, setSubmitting] = useState(false);
   const [opcionSel, setOpcionSel] = useState<string>('transferencia');
 
   const cotizacion = useMemo(() => {
     if (!ubicacion.region) return null;
-    return calcularCotizacion({ ...consumo, region: ubicacion.region as Region, config: getConfig() });
-  }, [consumo, ubicacion.region]);
+    return calcularCotizacion({
+      ...consumo,
+      region: ubicacion.region as Region,
+      fases: fasesPorTipoPropiedad(data.propiedad.tipoPropiedad),
+      config,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consumo, ubicacion.region, data.propiedad.tipoPropiedad, config, version]);
 
   if (status === 'success') {
     return <StepShell title=""><SuccessAnimation /></StepShell>;
@@ -47,8 +56,12 @@ export function Step6Resumen() {
 
   return (
     <StepShell
-      title="Tu cotización preliminar"
-      subtitle="Un especialista confirmará los valores finales."
+      title={detallada ? 'Tu estimación de ahorro' : 'Tu cotización preliminar'}
+      subtitle={
+        detallada
+          ? 'Para tu tipo de proyecto preparamos una cotización a detalle. Déjanos tus datos y un especialista te contactará.'
+          : 'Un especialista confirmará los valores finales.'
+      }
       footer={
         <div className="flex items-center justify-between w-full gap-2">
           <Button type="button" variant="ghost" onClick={() => goToStep(5)}>
@@ -56,7 +69,7 @@ export function Step6Resumen() {
             Volver
           </Button>
           <div className="flex items-center gap-2">
-            {cotizacion && (
+            {cotizacion && !detallada && (
               <a
                 href="/cotizacion"
                 target="_blank"
@@ -73,7 +86,7 @@ export function Step6Resumen() {
               loading={submitting}
               onClick={handleSubmit}
             >
-              Enviar solicitud
+              {detallada ? 'Solicitar cotización a detalle' : 'Enviar solicitud'}
               <Send className="h-4 w-4" />
             </Button>
           </div>
@@ -92,11 +105,15 @@ export function Step6Resumen() {
         {cotizacion && (
           <>
             {/* ── KPIs principales ─────────────────────────────────────── */}
-            <div className="grid grid-cols-4 gap-2">
+            <div className={clsx('grid gap-2', detallada ? 'grid-cols-2' : 'grid-cols-4')}>
               <KPI label="Sistema" value={`${cotizacion.sistema.capacidadKwp.toFixed(1)} kWp`} accent />
               <KPI label="Ahorro/mes" value={formatCLP(cotizacion.ahorro.ahorroMensualProm)} highlight />
-              <KPI label="Precio total" value={formatCLP(cotizacion.precioProyectoClp)} />
-              <KPI label="Payback" value={`${cotizacion.paybackAnios} años`} />
+              {!detallada && (
+                <>
+                  <KPI label="Precio total" value={formatCLP(cotizacion.precioProyectoClp)} />
+                  <KPI label="Payback" value={`${cotizacion.paybackAnios} años`} />
+                </>
+              )}
             </div>
 
             {/* ── Generación ───────────────────────────────────────────── */}
@@ -109,30 +126,48 @@ export function Step6Resumen() {
               </span>
             </div>
 
-            {/* ── Financiamiento ───────────────────────────────────────── */}
-            <div className="grid gap-2 sm:grid-cols-2">
-              {cotizacion.opcionesFinanciamiento.map((op) => (
-                <OpcionCard
-                  key={op.id}
-                  opcion={op}
-                  selected={opcionSel === op.id}
-                  onClick={() => setOpcionSel(op.id)}
+            {/* ── Flujo residencial: oferta comercial completa ─────────── */}
+            {!detallada && (
+              <>
+                {/* Financiamiento */}
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {cotizacion.opcionesFinanciamiento.map((op) => (
+                    <OpcionCard
+                      key={op.id}
+                      opcion={op}
+                      selected={opcionSel === op.id}
+                      onClick={() => setOpcionSel(op.id)}
+                    />
+                  ))}
+                </div>
+
+                {/* Gráfico de payback */}
+                <PaybackChart
+                  precioProyecto={cotizacion.precioProyectoClp}
+                  ahorroAnual={cotizacion.ahorro.ahorroTotalAnual}
+                  paybackAnios={cotizacion.paybackAnios}
+                  opcionSel={opcionSel}
+                  opcion={cotizacion.opcionesFinanciamiento.find(o => o.id === opcionSel) ?? cotizacion.opcionesFinanciamiento[0]}
                 />
-              ))}
-            </div>
 
-            {/* ── Gráfico de payback ───────────────────────────────────── */}
-            <PaybackChart
-              precioProyecto={cotizacion.precioProyectoClp}
-              ahorroAnual={cotizacion.ahorro.ahorroTotalAnual}
-              paybackAnios={cotizacion.paybackAnios}
-              opcionSel={opcionSel}
-              opcion={cotizacion.opcionesFinanciamiento.find(o => o.id === opcionSel) ?? cotizacion.opcionesFinanciamiento[0]}
-            />
+                <p className="text-[10px] text-slate-400 -mt-1">
+                  * Valores IVA incluido. <a href="/cotizacion" target="_blank" rel="noopener noreferrer" className="text-amber-600 underline underline-offset-2">Ver cotización completa con garantías y condiciones →</a>
+                </p>
+              </>
+            )}
 
-            <p className="text-[10px] text-slate-400 -mt-1">
-              * Valores IVA incluido. <a href="/cotizacion" target="_blank" rel="noopener noreferrer" className="text-amber-600 underline underline-offset-2">Ver cotización completa con garantías y condiciones →</a>
-            </p>
+            {/* ── Flujo empresa/departamento: cotización a detalle ─────── */}
+            {detallada && (
+              <div className="rounded-xl border border-sky-400/30 bg-sky-500/10 p-3">
+                <p className="text-sm font-semibold text-sky-800">Cotización a detalle</p>
+                <p className="mt-1 text-xs text-sky-700">
+                  Los proyectos de {data.propiedad.tipoPropiedad === 'empresa' ? 'empresa' : 'departamento'} se
+                  diseñan a medida (dimensionamiento, estructura, empalme y condiciones específicas). El ahorro
+                  que ves arriba es una estimación referencial. Al enviar tus datos, un especialista preparará
+                  una propuesta técnica y de precio a tu medida.
+                </p>
+              </div>
+            )}
           </>
         )}
 

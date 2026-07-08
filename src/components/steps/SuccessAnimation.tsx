@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { useCotizadorStore } from '@/lib/store';
 import { formatCLP, calcularCotizacion } from '@/lib/estimaciones';
-import { getConfig } from '@/lib/config';
+import { getConfig, fasesPorTipoPropiedad } from '@/lib/config';
 import type { Region } from '@/lib/config';
 
 export function SuccessAnimation() {
@@ -13,7 +13,12 @@ export function SuccessAnimation() {
   const { consumo, ubicacion, contacto } = data;
 
   const cotizacion = ubicacion.region
-    ? calcularCotizacion({ ...consumo, region: ubicacion.region as Region, config: getConfig() })
+    ? calcularCotizacion({
+        ...consumo,
+        region: ubicacion.region as Region,
+        fases: fasesPorTipoPropiedad(data.propiedad.tipoPropiedad),
+        config: getConfig(),
+      })
     : null;
 
   const nombre = contacto?.nombreCompleto ?? '';

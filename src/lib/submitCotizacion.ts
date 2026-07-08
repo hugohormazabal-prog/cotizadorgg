@@ -1,7 +1,7 @@
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import { CotizadorState } from './types';
 import { calcularCotizacion } from './estimaciones';
-import { getConfig } from './config';
+import { getConfig, fasesPorTipoPropiedad } from './config';
 import type { Region } from './config';
 
 export interface SubmitResult {
@@ -25,7 +25,12 @@ export interface SubmitResult {
 export async function submitCotizacion(data: CotizadorState): Promise<SubmitResult> {
   const region = data.ubicacion.region as Region | '';
   const estimacion = region
-    ? calcularCotizacion({ ...data.consumo, region, config: getConfig() })
+    ? calcularCotizacion({
+        ...data.consumo,
+        region,
+        fases: fasesPorTipoPropiedad(data.propiedad.tipoPropiedad),
+        config: getConfig(),
+      })
     : null;
 
   const payload = {

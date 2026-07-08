@@ -53,16 +53,21 @@ export function generacionAnualPorKwp(region: Region): number {
 // ---------------------------------------------------------------------------
 export interface ConfigCotizador {
   // Precios de energía
-  precioKwhClp: number;           // $/kWh tarifa consumo. Ej: 250
-  precioInyeccionKwhClp: number;  // $/kWh tarifa inyección neta (net-billing). Ej: 125.79
+  precioKwhClp: number;           // $/kWh tarifa consumo (MAIN!C71). Ej: 250
+  // Inyección neta = precio de nudo × IVA. Excel MAIN!C72 = 105.7033 * 1.19
+  precioNudoInyeccionClp: number; // $/kWh precio de nudo inyección (sin IVA). Ej: 105.7033
+  ivaInyeccion: number;           // Factor IVA aplicado a la inyección. Ej: 1.19
 
   // Panel estándar
-  panelPotenciaW: number;         // Potencia unitaria del panel en W. Ej: 620
+  panelPotenciaW: number;         // Potencia unitaria del panel en W (PAN!G). Ej: 620
   panelMarcaModelo: string;       // Nombre para mostrar. Ej: "Longi 620 W"
 
   // Dimensionamiento
-  limiteAutoconsumo: number;      // % del consumo anual cubierto por autoconsumo. Ej: 0.50
-  factorGeneracion: number;       // Sobredimensionamiento (gen/consumo ratio). Ej: 1.585
+  limiteAutoconsumo: number;      // % del consumo anual cubierto por autoconsumo (INPUT!B19). Ej: 0.50
+  proyeccionConsumo: number;      // Proyección/multiplicador del consumo (INPUT!B18). Ej: 1
+  // NOTA: el "factor de sobredimensionamiento" NO es una constante en el Excel:
+  // se deriva de límite + precioConsumo*(1-límite)/precioInyección  (ver getFactorGeneracion).
+  maxPanelesMonofasico: number;   // Tope de paneles para instalación monofásica (COTBACK!D53). Ej: 20
 
   // Precio por kWp (IVA incluido)
   costoPorKwpClpIva: number;      // $/kWp precio venta IVA inc. Ej: 1_053_495
@@ -101,6 +106,9 @@ export interface ConfigCotizador {
   // Inversión de repuesto (mantenimiento proyectado)
   inversionRespuesto10: number;   // Repuesto año 10 CLP. Ej: 518_000
   inversionRespuesto22: number;   // Repuesto año 22 CLP. Ej: 518_000
+
+  // Ambiental
+  co2FactorKgPerKwh: number;      // Mitigación de CO2 por kWh (FINBACK!B49). Ej: 0.5
 }
 
 // ---------------------------------------------------------------------------
@@ -108,13 +116,15 @@ export interface ConfigCotizador {
 // ---------------------------------------------------------------------------
 export const CONFIG_DEFAULT: ConfigCotizador = {
   precioKwhClp: 250,
-  precioInyeccionKwhClp: 125.79,
+  precioNudoInyeccionClp: 105.7033,
+  ivaInyeccion: 1.19,
 
   panelPotenciaW: 620,
   panelMarcaModelo: 'Longi 620 W',
 
   limiteAutoconsumo: 0.50,
-  factorGeneracion: 1.494, // corregido desde 1.585 — valor implícito del Excel (auditoría)
+  proyeccionConsumo: 1,
+  maxPanelesMonofasico: 20,
 
   costoPorKwpClpIva: 1_053_495,
   margen: 0.2111,
@@ -139,12 +149,69 @@ export const CONFIG_DEFAULT: ConfigCotizador = {
 
   inversionRespuesto10: 518_000,
   inversionRespuesto22: 518_000,
+
+  co2FactorKgPerKwh: 0.5,
 };
+
+// ---------------------------------------------------------------------------
+// Precio de inyección efectivo ($/kWh IVA inc.) — MAIN!C72 = 105.7033 * 1.19
+// ---------------------------------------------------------------------------
+export function precioInyeccionKwhClp(cfg: ConfigCotizador): number {
+  return cfg.precioNudoInyeccionClp * cfg.ivaInyeccion;
+}
+
+// ---------------------------------------------------------------------------
+// Factor de sobredimensionamiento DERIVADO (no es constante en el Excel).
+// FINBACK: kWp_ideal = (autoconsumo_kWh + inyeccion_ideal_kWh) / genAnual
+//   autoconsumo_kWh    = consumo_anual * límite
+//   inyeccion_ideal_kWh= consumo_anual * precioConsumo * (1-límite) / precioInyección
+// ⇒ factor = límite + precioConsumo*(1-límite)/precioInyección
+// Con los defaults: 0.5 + 250*0.5/125.787 = 1.4937
+// ---------------------------------------------------------------------------
+export function getFactorGeneracion(cfg: ConfigCotizador): number {
+  const pIny = precioInyeccionKwhClp(cfg);
+  return cfg.limiteAutoconsumo + (cfg.precioKwhClp * (1 - cfg.limiteAutoconsumo)) / pIny;
+}
+
+// ---------------------------------------------------------------------------
+// Número de fases según tipo de propiedad.
+// Casa / casa en construcción / departamento → monofásico (1) salvo alto consumo.
+// Empresa → trifásico (3), sin el tope de paneles monofásico.
+// ---------------------------------------------------------------------------
+export function fasesPorTipoPropiedad(tipo: string | undefined | null): 1 | 3 {
+  return tipo === 'empresa' ? 3 : 1;
+}
+
+// ---------------------------------------------------------------------------
+// Diferenciación de flujo por tipo de propiedad.
+// Empresa y departamento requieren una COTIZACIÓN A DETALLE hecha por un
+// especialista (no es comparable al mundo residencial): en el cotizador web
+// solo se les muestra el ejercicio de AHORRO estimado y se capturan como lead
+// — sin precios, financiamiento ni oferta.
+// Casa y casa en construcción sí ven la propuesta comercial completa.
+// ---------------------------------------------------------------------------
+export function requiereCotizacionDetallada(tipo: string | undefined | null): boolean {
+  return tipo === 'empresa' || tipo === 'departamento';
+}
+
+/** true si al usuario se le pueden mostrar precios/financiamiento/oferta. */
+export function muestraPrecios(tipo: string | undefined | null): boolean {
+  return !requiereCotizacionDetallada(tipo);
+}
 
 // ---------------------------------------------------------------------------
 // Config activa: lee sobreescrituras del mantenedor (localStorage en browser)
 // ---------------------------------------------------------------------------
 const STORAGE_KEY = 'gg-config-mantenedor';
+const GEN_ZONA_KEY = 'gg-gen-zona';
+/** Evento que dispara el mantenedor al guardar; el cotizador lo escucha para
+ *  recalcular en vivo sin necesidad de refrescar la página (bug "pegado"). */
+export const CONFIG_CHANGED_EVENT = 'gg-config-changed';
+
+function emitConfigChanged(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event(CONFIG_CHANGED_EVENT));
+}
 
 export function getConfig(): ConfigCotizador {
   if (typeof window === 'undefined') return CONFIG_DEFAULT;
@@ -161,7 +228,7 @@ export function getConfig(): ConfigCotizador {
 export function getGeneracionPorZona(): Record<Region, GeneracionMensual> {
   if (typeof window === 'undefined') return GENERACION_POR_ZONA;
   try {
-    const raw = localStorage.getItem('gg-gen-zona');
+    const raw = localStorage.getItem(GEN_ZONA_KEY);
     if (!raw) return GENERACION_POR_ZONA;
     return { ...GENERACION_POR_ZONA, ...JSON.parse(raw) };
   } catch {
@@ -173,11 +240,20 @@ export function saveConfig(patch: Partial<ConfigCotizador>): void {
   if (typeof window === 'undefined') return;
   const current = getConfig();
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, ...patch }));
+  emitConfigChanged();
+}
+
+export function saveGenZona(genZona: Record<Region, GeneracionMensual>): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(GEN_ZONA_KEY, JSON.stringify(genZona));
+  emitConfigChanged();
 }
 
 export function resetConfig(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(GEN_ZONA_KEY);
+  emitConfigChanged();
 }
 
 export const REGIONES: Region[] = [

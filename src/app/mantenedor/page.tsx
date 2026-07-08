@@ -5,7 +5,10 @@ import {
   Settings, Save, RotateCcw, ChevronDown, ChevronRight,
   Zap, Sun, DollarSign, ShieldCheck, CreditCard, BarChart2,
 } from 'lucide-react';
-import { getConfig, saveConfig, resetConfig, CONFIG_DEFAULT, REGIONES } from '@/lib/config';
+import {
+  getConfig, saveConfig, saveGenZona, resetConfig, CONFIG_DEFAULT, REGIONES,
+  getFactorGeneracion, precioInyeccionKwhClp,
+} from '@/lib/config';
 import type { ConfigCotizador, Region } from '@/lib/config';
 import { GENERACION_POR_ZONA } from '@/lib/config';
 
@@ -146,10 +149,7 @@ export default function MantenedorPage() {
 
   const handleSave = () => {
     saveConfig(cfg);
-    // Guardar tabla de generación por zona en localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('gg-gen-zona', JSON.stringify(genZona));
-    }
+    saveGenZona(genZona);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -215,18 +215,30 @@ export default function MantenedorPage() {
               />
             </Field>
             <Field
-              label="Precio inyección neta ($/kWh)"
-              hint="Tarifa net-billing (precio de nudo). Default: $125,79"
+              label="Precio de nudo inyección ($/kWh)"
+              hint="Precio de nudo SIN IVA (MAIN!C72 = nudo × IVA). Default: $105,7033"
             >
               <NumberInput
-                value={cfg.precioInyeccionKwhClp}
-                onChange={(v) => patch('precioInyeccionKwhClp', v)}
+                value={cfg.precioNudoInyeccionClp}
+                onChange={(v) => patch('precioNudoInyeccionClp', v)}
                 min={0}
-                step={0.01}
+                step={0.0001}
                 suffix="$/kWh"
               />
             </Field>
+            <Field label="Factor IVA inyección" hint="Default: 1.19">
+              <NumberInput
+                value={cfg.ivaInyeccion}
+                onChange={(v) => patch('ivaInyeccion', v)}
+                min={1}
+                max={1.5}
+                step={0.01}
+              />
+            </Field>
           </div>
+          <p className="mt-3 rounded-lg bg-sky-50 px-3 py-2 text-[11px] text-sky-700">
+            Precio inyección efectivo (IVA inc.): <b>${precioInyeccionKwhClp(cfg).toFixed(2)}/kWh</b>
+          </p>
         </Section>
 
         {/* ── PANEL Y DIMENSIONAMIENTO ───────────────────────────────────── */}
@@ -240,17 +252,28 @@ export default function MantenedorPage() {
             </Field>
             <Field
               label="Límite autoconsumo"
-              hint="% del consumo anual cubierto por autoconsumo. Default: 0.50"
+              hint="% del consumo anual cubierto por autoconsumo (INPUT!B19). Default: 0.50"
             >
               <NumberInput value={cfg.limiteAutoconsumo} onChange={(v) => patch('limiteAutoconsumo', v)} min={0.1} max={1} step={0.01} suffix="(0–1)" />
             </Field>
             <Field
-              label="Factor sobredimensionamiento"
-              hint="Ratio gen/consumo. Default: 1.585 (Excel)"
+              label="Proyección del consumo"
+              hint="Multiplicador del consumo (INPUT!B18). Default: 1"
             >
-              <NumberInput value={cfg.factorGeneracion} onChange={(v) => patch('factorGeneracion', v)} min={0.5} max={5} step={0.01} />
+              <NumberInput value={cfg.proyeccionConsumo} onChange={(v) => patch('proyeccionConsumo', v)} min={0.1} max={5} step={0.05} />
+            </Field>
+            <Field
+              label="Tope paneles monofásico"
+              hint="Máx. paneles en casa/depto (COTBACK!D53). Empresa (trifásico) no tiene tope. Default: 20"
+            >
+              <NumberInput value={cfg.maxPanelesMonofasico} onChange={(v) => patch('maxPanelesMonofasico', v)} min={1} max={100} suffix="paneles" />
             </Field>
           </div>
+          <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+            Factor de sobredimensionamiento (derivado, no editable):{' '}
+            <b>{getFactorGeneracion(cfg).toFixed(4)}</b>{' '}
+            = límite + precioConsumo×(1−límite)/precioInyección. Se recalcula solo al cambiar las tarifas o el límite.
+          </p>
         </Section>
 
         {/* ── PRECIOS Y MARGEN ───────────────────────────────────────────── */}
@@ -346,6 +369,9 @@ export default function MantenedorPage() {
             <Field label="Repuesto año 22 (CLP)" hint="Reemplazo inversor proyectado. Default: $518.000">
               <NumberInput value={cfg.inversionRespuesto22} onChange={(v) => patch('inversionRespuesto22', v)} min={0} suffix="CLP" />
             </Field>
+            <Field label="Factor CO₂ (kg/kWh)" hint="Mitigación de CO₂ por kWh (FINBACK!B49). Default: 0.5">
+              <NumberInput value={cfg.co2FactorKgPerKwh} onChange={(v) => patch('co2FactorKgPerKwh', v)} min={0} max={2} step={0.01} suffix="kg/kWh" />
+            </Field>
           </div>
         </Section>
 
@@ -394,8 +420,8 @@ export default function MantenedorPage() {
             </table>
           </div>
           <p className="mt-2 text-[10px] text-slate-400">
-            * Los cambios en esta tabla NO se guardan con el botón &quot;Guardar cambios&quot; aún
-            (requiere migración de esquema). Edita directamente en config.ts para persistir.
+            * Los cambios en esta tabla se guardan con &quot;Guardar cambios&quot; (en el navegador) y
+            el cotizador los aplica en vivo, sin necesidad de refrescar.
           </p>
         </Section>
 

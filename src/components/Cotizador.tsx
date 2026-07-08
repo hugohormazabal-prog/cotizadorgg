@@ -15,7 +15,8 @@ import { Step5Consumo } from '@/components/steps/Step5Consumo';
 import { Step6Resumen } from '@/components/steps/Step6Resumen';
 import { useMemo } from 'react';
 import { estimarRapido, formatCLP } from '@/lib/estimaciones';
-import { getConfig } from '@/lib/config';
+import { fasesPorTipoPropiedad } from '@/lib/config';
+import { useConfig } from '@/lib/useConfig';
 import type { Region } from '@/lib/config';
 
 const STEP_COMPONENTS = {
@@ -32,13 +33,22 @@ export function Cotizador() {
   const StepComponent = STEP_COMPONENTS[step];
   const consumo = useCotizadorStore((s) => s.data.consumo);
   const region = useCotizadorStore((s) => s.data.ubicacion.region) as Region | '';
+  const tipoPropiedad = useCotizadorStore((s) => s.data.propiedad.tipoPropiedad);
+  const { config, version } = useConfig();
 
   const liveAhorro = useMemo(() => {
     if (!region) return null;
     try {
-      return estimarRapido({ ...consumo, region, config: getConfig() });
+      return estimarRapido({
+        ...consumo,
+        region,
+        fases: fasesPorTipoPropiedad(tipoPropiedad),
+        config,
+      });
     } catch { return null; }
-  }, [consumo, region]);
+    // `version` fuerza recálculo cuando cambia la config del mantenedor
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consumo, region, tipoPropiedad, config, version]);
 
   return (
     <main className="relative w-full min-h-screen flex items-center justify-center px-4 py-8">

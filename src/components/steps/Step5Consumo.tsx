@@ -9,7 +9,8 @@ import { StepNavButtons } from './StepNavButtons';
 import { useCotizadorStore } from '@/lib/store';
 import { UnidadConsumo } from '@/lib/types';
 import { estimarRapido, formatCLP } from '@/lib/estimaciones';
-import { getConfig } from '@/lib/config';
+import { fasesPorTipoPropiedad, requiereCotizacionDetallada } from '@/lib/config';
+import { useConfig } from '@/lib/useConfig';
 import type { Region } from '@/lib/config';
 
 const RANGO_CLP = { min: 10_000, max: 3_000_000, step: 10_000 };
@@ -18,7 +19,11 @@ const RANGO_KWH = { min: 50, max: 15_000, step: 50 };
 export function Step5Consumo() {
   const consumo = useCotizadorStore((s) => s.data.consumo);
   const region = useCotizadorStore((s) => s.data.ubicacion.region) as Region | '';
+  const tipoPropiedad = useCotizadorStore((s) => s.data.propiedad.tipoPropiedad);
   const updateConsumo = useCotizadorStore((s) => s.updateConsumo);
+  const { config, version } = useConfig();
+
+  const detallada = requiereCotizacionDetallada(tipoPropiedad);
 
   const valorActual =
     consumo.unidad === 'clp' ? consumo.montoClp ?? 90_000 : consumo.consumoKwh ?? 350;
@@ -29,9 +34,11 @@ export function Step5Consumo() {
     return estimarRapido({
       ...consumo,
       region,
-      config: getConfig(),
+      fases: fasesPorTipoPropiedad(tipoPropiedad),
+      config,
     });
-  }, [consumo, region]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consumo, region, tipoPropiedad, config, version]);
 
   const isValid = consumo.unidad === 'clp' ? Boolean(consumo.montoClp) : Boolean(consumo.consumoKwh);
 
@@ -208,7 +215,10 @@ export function Step5Consumo() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
+              className={clsx(
+                'grid gap-2 sm:grid-cols-2',
+                detallada ? '' : 'lg:grid-cols-4'
+              )}
             >
               <EstimacionCard
                 icon={<SunMedium className="h-4 w-4" />}
@@ -222,16 +232,22 @@ export function Step5Consumo() {
                 value={formatCLP(estimacion.ahorroMensual)}
                 accent
               />
-              <EstimacionCard
-                icon={<Zap className="h-4 w-4" />}
-                label="Inversión referencial"
-                value={formatCLP(estimacion.precioProyecto)}
-              />
-              <EstimacionCard
-                icon={<Clock className="h-4 w-4" />}
-                label="Retorno estimado"
-                value={`${estimacion.paybackAnios.toFixed(1)} años`}
-              />
+              {/* Precios/retorno solo para flujo residencial. Empresa/depto
+                  reciben cotización a detalle y no ven oferta de precio. */}
+              {!detallada && (
+                <>
+                  <EstimacionCard
+                    icon={<Zap className="h-4 w-4" />}
+                    label="Inversión referencial"
+                    value={formatCLP(estimacion.precioProyecto)}
+                  />
+                  <EstimacionCard
+                    icon={<Clock className="h-4 w-4" />}
+                    label="Retorno estimado"
+                    value={`${estimacion.paybackAnios.toFixed(1)} años`}
+                  />
+                </>
+              )}
             </motion.div>
           ) : !region ? (
             <motion.div
