@@ -15,7 +15,7 @@ import { Step5Consumo } from '@/components/steps/Step5Consumo';
 import { Step6Resumen } from '@/components/steps/Step6Resumen';
 import { useMemo } from 'react';
 import { estimarRapido, formatCLP } from '@/lib/estimaciones';
-import { fasesPorTipoPropiedad } from '@/lib/config';
+import { fasesPorTipoPropiedad, requiereCotizacionDetallada } from '@/lib/config';
 import { useConfig } from '@/lib/useConfig';
 import type { Region } from '@/lib/config';
 
@@ -92,7 +92,9 @@ export function Cotizador() {
                 transition={{ duration: 0.3 }}
                 className="flex flex-col items-end"
               >
-                <span className="text-[9px] uppercase tracking-widest text-white/50">Ahorro est.</span>
+                <span className="text-[9px] uppercase tracking-widest text-white/50">
+                  {requiereCotizacionDetallada(tipoPropiedad) ? 'Beneficio est.' : 'Ahorro est.'}
+                </span>
                 <span className="text-base font-extrabold text-amber-300 tabular-nums leading-tight">
                   {formatCLP(liveAhorro.ahorroMensual)}<span className="text-[10px] font-normal text-white/50">/mes</span>
                 </span>

@@ -119,9 +119,12 @@ export function Step5Consumo() {
           </div>
         </div>
 
-        {/* Ahorro estimado — UN SOLO número, el "Ahorro Total" del Excel
-            (autoconsumo + inyección / net billing). Se muestra igual en el
-            header. No mostramos cifras parciales aquí para no confundir. */}
+        {/* Ahorro / beneficio estimado.
+            - Residencial: un solo número, "tu ahorro estimado".
+            - Empresa/Departamento: "beneficio económico" DESGLOSADO
+              (ahorro en cuenta + ingreso por inyección), porque para un
+              negocio el beneficio incluye vender energía y puede superar la
+              cuenta — así se entiende de dónde sale. */}
         <AnimatePresence>
           {estimacion && (
             <motion.div
@@ -139,7 +142,7 @@ export function Step5Consumo() {
                 <TrendingDown className="h-5 w-5" strokeWidth={2.2} />
               </div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-amber-600">
-                Tu ahorro estimado con solar
+                {detallada ? 'Beneficio económico estimado' : 'Tu ahorro estimado con solar'}
               </p>
               <motion.p
                 key={estimacion.ahorroMensual}
@@ -151,10 +154,42 @@ export function Step5Consumo() {
                 {formatCLP(estimacion.ahorroMensual)}
                 <span className="text-base font-semibold text-amber-600">/mes</span>
               </motion.p>
-              <p className="mx-auto mt-2.5 max-w-md text-[11px] leading-snug text-slate-500">
-                Estimación según el modelo de cálculo de GG Electrics para tu zona y consumo.
-                Incluye el ahorro en tu cuenta y el ingreso por la energía que inyectas a la red.
-              </p>
+
+              {detallada ? (
+                <>
+                  {/* Desglose que SUMA al beneficio total de arriba */}
+                  <div className="mx-auto mt-3 grid max-w-sm gap-1.5">
+                    <div className="flex items-center justify-between gap-2 rounded-lg bg-white/60 px-3 py-2">
+                      <span className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                        <TrendingDown className="h-3.5 w-3.5 text-emerald-600" strokeWidth={2.2} />
+                        Ahorro en tu cuenta
+                      </span>
+                      <span className="text-xs font-bold tabular-nums text-slate-800">
+                        {formatCLP(estimacion.ahorroAutoconsumoMensual)}/mes
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 rounded-lg bg-white/60 px-3 py-2">
+                      <span className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                        <Zap className="h-3.5 w-3.5 text-sky-600" strokeWidth={2.2} />
+                        Ingreso por inyección a la red
+                      </span>
+                      <span className="text-xs font-bold tabular-nums text-slate-800">
+                        {formatCLP(estimacion.ahorroInyeccionMensual)}/mes
+                      </span>
+                    </div>
+                  </div>
+                  <p className="mx-auto mt-2.5 max-w-md text-[11px] leading-snug text-slate-500">
+                    En un proyecto de {tipoPropiedad === 'empresa' ? 'empresa' : 'departamento'} el beneficio
+                    combina el ahorro en tu cuenta más el ingreso por vender el excedente a la red — por eso
+                    puede superar tu gasto actual. Un especialista prepara la cotización a detalle.
+                  </p>
+                </>
+              ) : (
+                <p className="mx-auto mt-2.5 max-w-md text-[11px] leading-snug text-slate-500">
+                  Estimación según el modelo de cálculo de GG Electrics para tu zona y consumo.
+                  Incluye el ahorro en tu cuenta y el ingreso por la energía que inyectas a la red.
+                </p>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

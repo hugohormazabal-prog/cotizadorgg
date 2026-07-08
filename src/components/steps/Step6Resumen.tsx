@@ -107,7 +107,7 @@ export function Step6Resumen() {
             {/* ── KPIs principales ─────────────────────────────────────── */}
             <div className={clsx('grid gap-2', detallada ? 'grid-cols-2' : 'grid-cols-4')}>
               <KPI label="Sistema" value={`${cotizacion.sistema.capacidadKwp.toFixed(1)} kWp`} accent />
-              <KPI label="Ahorro/mes" value={formatCLP(cotizacion.ahorro.ahorroMensualProm)} highlight />
+              <KPI label={detallada ? 'Beneficio/mes' : 'Ahorro/mes'} value={formatCLP(cotizacion.ahorro.ahorroMensualProm)} highlight />
               {!detallada && (
                 <>
                   <KPI label="Precio total" value={formatCLP(cotizacion.precioProyectoClp)} />
