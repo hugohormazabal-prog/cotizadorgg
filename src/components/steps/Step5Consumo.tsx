@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, SunMedium, Clock, TrendingDown, AlertTriangle } from 'lucide-react';
+import { SunMedium, Clock, AlertTriangle } from 'lucide-react';
 import clsx from 'clsx';
 import { StepShell } from './StepShell';
 import { StepNavButtons } from './StepNavButtons';
@@ -154,81 +154,6 @@ export function Step5Consumo() {
             <span>{consumo.unidad === 'clp' ? formatCLP(rango.max) : `${rango.max} kWh`}</span>
           </div>
         </div>
-
-        {/* Ahorro / beneficio estimado.
-            - Residencial: un solo número, "tu ahorro estimado".
-            - Empresa/Departamento: "beneficio económico" DESGLOSADO
-              (ahorro en cuenta + ingreso por inyección), porque para un
-              negocio el beneficio incluye vender energía y puede superar la
-              cuenta — así se entiende de dónde sale. */}
-        <AnimatePresence>
-          {estimacion && (
-            <motion.div
-              key="ahorro-hero"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-400/20 via-amber-300/10 to-transparent p-5 text-center shadow-glow-amber"
-            >
-              {/* halo decorativo */}
-              <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-amber-400/20 blur-3xl" />
-
-              <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-amber-400/25 text-amber-600">
-                <TrendingDown className="h-5 w-5" strokeWidth={2.2} />
-              </div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-amber-600">
-                {detallada ? 'Beneficio económico estimado' : 'Tu ahorro estimado con solar'}
-              </p>
-              <motion.p
-                key={estimacion.ahorroMensual}
-                initial={{ scale: 0.92, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-                className="mt-1 text-[2rem] leading-none font-extrabold text-amber-700 tabular-nums sm:text-4xl"
-              >
-                {formatCLP(estimacion.ahorroMensual)}
-                <span className="text-base font-semibold text-amber-600">/mes</span>
-              </motion.p>
-
-              {detallada ? (
-                <>
-                  {/* Desglose que SUMA al beneficio total de arriba */}
-                  <div className="mx-auto mt-3 grid max-w-sm gap-1.5">
-                    <div className="flex items-center justify-between gap-2 rounded-lg bg-white/60 px-3 py-2">
-                      <span className="flex items-center gap-1.5 text-[11px] text-slate-600">
-                        <TrendingDown className="h-3.5 w-3.5 text-emerald-600" strokeWidth={2.2} />
-                        Ahorro en tu cuenta
-                      </span>
-                      <span className="text-xs font-bold tabular-nums text-slate-800">
-                        {formatCLP(estimacion.ahorroAutoconsumoMensual)}/mes
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2 rounded-lg bg-white/60 px-3 py-2">
-                      <span className="flex items-center gap-1.5 text-[11px] text-slate-600">
-                        <Zap className="h-3.5 w-3.5 text-sky-600" strokeWidth={2.2} />
-                        Ingreso por inyección a la red
-                      </span>
-                      <span className="text-xs font-bold tabular-nums text-slate-800">
-                        {formatCLP(estimacion.ahorroInyeccionMensual)}/mes
-                      </span>
-                    </div>
-                  </div>
-                  <p className="mx-auto mt-2.5 max-w-md text-[11px] leading-snug text-slate-500">
-                    En un proyecto de {tipoPropiedad === 'empresa' ? 'empresa' : 'departamento'} el beneficio
-                    combina el ahorro en tu cuenta más el ingreso por vender el excedente a la red — por eso
-                    puede superar tu gasto actual. Un especialista prepara la cotización a detalle.
-                  </p>
-                </>
-              ) : (
-                <p className="mx-auto mt-2.5 max-w-md text-[11px] leading-snug text-slate-500">
-                  Estimación según el modelo de cálculo de GG Electrics para tu zona y consumo.
-                  Incluye el ahorro en tu cuenta y el ingreso por la energía que inyectas a la red.
-                </p>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Estimaciones en tiempo real */}
         <AnimatePresence>
