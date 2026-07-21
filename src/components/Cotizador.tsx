@@ -1,6 +1,6 @@
 'use client';
 
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { ShieldCheck, Zap, Sun, Award } from 'lucide-react';
 import { ImmersiveBackground } from '@/components/ui/ImmersiveBackground';
@@ -13,11 +13,6 @@ import { Step3Instalacion } from '@/components/steps/Step3Instalacion';
 import { Step4Ubicacion } from '@/components/steps/Step4Ubicacion';
 import { Step5Consumo } from '@/components/steps/Step5Consumo';
 import { Step6Resumen } from '@/components/steps/Step6Resumen';
-import { useMemo } from 'react';
-import { estimarRapido, formatCLP } from '@/lib/estimaciones';
-import { fasesPorTipoPropiedad, requiereCotizacionDetallada } from '@/lib/config';
-import { useConfig } from '@/lib/useConfig';
-import type { Region } from '@/lib/config';
 
 const STEP_COMPONENTS = {
   1: Step1Contacto,
@@ -31,24 +26,6 @@ const STEP_COMPONENTS = {
 export function Cotizador() {
   const step = useCotizadorStore((s) => s.step);
   const StepComponent = STEP_COMPONENTS[step];
-  const consumo = useCotizadorStore((s) => s.data.consumo);
-  const region = useCotizadorStore((s) => s.data.ubicacion.region) as Region | '';
-  const tipoPropiedad = useCotizadorStore((s) => s.data.propiedad.tipoPropiedad);
-  const { config, version } = useConfig();
-
-  const liveAhorro = useMemo(() => {
-    if (!region) return null;
-    try {
-      return estimarRapido({
-        ...consumo,
-        region,
-        fases: fasesPorTipoPropiedad(tipoPropiedad),
-        config,
-      });
-    } catch { return null; }
-    // `version` fuerza recálculo cuando cambia la config del mantenedor
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [consumo, region, tipoPropiedad, config, version]);
 
   return (
     <main className="relative w-full min-h-screen flex items-center justify-center px-4 py-8">
@@ -81,38 +58,14 @@ export function Cotizador() {
               </span>
             </div>
           </div>
-          {/* Live savings ticker — aparece cuando hay región y consumo */}
-          <AnimatePresence mode="wait">
-            {liveAhorro ? (
-              <motion.div
-                key="live"
-                initial={{ opacity: 0, y: -6, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 6 }}
-                transition={{ duration: 0.3 }}
-                className="flex flex-col items-end"
-              >
-                <span className="text-[9px] uppercase tracking-widest text-white/50">
-                  {requiereCotizacionDetallada(tipoPropiedad) ? 'Beneficio est.' : 'Ahorro est.'}
-                </span>
-                <span className="text-base font-extrabold text-amber-300 tabular-nums leading-tight">
-                  {formatCLP(liveAhorro.ahorroMensual)}<span className="text-[10px] font-normal text-white/50">/mes</span>
-                </span>
-              </motion.div>
-            ) : (
-              <motion.a
-                key="link"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                href="https://www.ggelectrics.cl/"
-                target="_blank"
-                rel="noreferrer"
-                className="hidden text-xs font-medium text-white/60 transition-colors hover:text-amber-300 sm:inline-flex"
-              >
-                ggelectrics.cl ↗
-              </motion.a>
-            )}
-          </AnimatePresence>
+          <a
+            href="https://www.ggelectrics.cl/"
+            target="_blank"
+            rel="noreferrer"
+            className="hidden text-xs font-medium text-white/60 transition-colors hover:text-amber-300 sm:inline-flex"
+          >
+            ggelectrics.cl ↗
+          </a>
         </header>
 
         {/* Card — altura automática según contenido, sin scroll interno */}

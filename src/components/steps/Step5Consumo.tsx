@@ -1,33 +1,50 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, SunMedium, Clock, TrendingDown } from 'lucide-react';
+import { Zap, SunMedium, Clock, TrendingDown, AlertTriangle } from 'lucide-react';
 import clsx from 'clsx';
 import { StepShell } from './StepShell';
 import { StepNavButtons } from './StepNavButtons';
 import { useCotizadorStore } from '@/lib/store';
 import { UnidadConsumo } from '@/lib/types';
 import { estimarRapido, formatCLP } from '@/lib/estimaciones';
+import { submitCotizacion } from '@/lib/submitCotizacion';
 import { fasesPorTipoPropiedad, requiereCotizacionDetallada } from '@/lib/config';
 import { useConfig } from '@/lib/useConfig';
 import type { Region } from '@/lib/config';
 
 const RANGO_CLP = { min: 10_000, max: 3_000_000, step: 10_000 };
 const RANGO_KWH = { min: 50, max: 15_000, step: 50 };
+// Casa / casa en construcción usan rangos acotados al segmento residencial.
+const RANGO_CLP_CASA = { min: 0, max: 500_000, step: 10_000 };
+const RANGO_KWH_CASA = { min: 0, max: 2_000, step: 50 };
 
 export function Step5Consumo() {
   const consumo = useCotizadorStore((s) => s.data.consumo);
   const region = useCotizadorStore((s) => s.data.ubicacion.region) as Region | '';
   const tipoPropiedad = useCotizadorStore((s) => s.data.propiedad.tipoPropiedad);
   const updateConsumo = useCotizadorStore((s) => s.updateConsumo);
+  const data = useCotizadorStore((s) => s.data);
+  const next = useCotizadorStore((s) => s.next);
+  const leadEnviado = useCotizadorStore((s) => s.leadEnviado);
+  const setLeadEnviado = useCotizadorStore((s) => s.setLeadEnviado);
   const { config, version } = useConfig();
+  const [enviando, setEnviando] = useState(false);
+  const [envioError, setEnvioError] = useState<string | null>(null);
 
   const detallada = requiereCotizacionDetallada(tipoPropiedad);
+  const esCasa = tipoPropiedad === 'casa' || tipoPropiedad === 'casa_construccion';
 
-  const valorActual =
+  const rango =
+    consumo.unidad === 'clp'
+      ? esCasa ? RANGO_CLP_CASA : RANGO_CLP
+      : esCasa ? RANGO_KWH_CASA : RANGO_KWH;
+
+  const valorBruto =
     consumo.unidad === 'clp' ? consumo.montoClp ?? 90_000 : consumo.consumoKwh ?? 350;
-  const rango = consumo.unidad === 'clp' ? RANGO_CLP : RANGO_KWH;
+  // Clamp al rango vigente (p. ej. si el valor persistido excede el nuevo máximo de Casa)
+  const valorActual = Math.min(Math.max(valorBruto, rango.min), rango.max);
 
   const estimacion = useMemo(() => {
     if (!region) return null;
@@ -55,11 +72,30 @@ export function Step5Consumo() {
     else updateConsumo({ consumoKwh: value });
   };
 
+  // Al avanzar a la etapa 6 se genera el lead (Supabase + Odoo) y se envía
+  // el correo formal con la propuesta. Solo una vez por sesión.
+  const handleNext = async () => {
+    if (leadEnviado) {
+      next();
+      return;
+    }
+    setEnviando(true);
+    setEnvioError(null);
+    const result = await submitCotizacion(data);
+    setEnviando(false);
+    if (result.ok) {
+      setLeadEnviado(true);
+      next();
+    } else {
+      setEnvioError(result.error ?? 'No pudimos registrar tu solicitud. Inténtalo nuevamente.');
+    }
+  };
+
   return (
     <StepShell
       title="Cuéntanos sobre tu consumo eléctrico"
       subtitle="Estimamos el tamaño del sistema y tu ahorro en base a tu zona y consumo actual."
-      footer={<StepNavButtons nextDisabled={!isValid} />}
+      footer={<StepNavButtons nextDisabled={!isValid || enviando} loading={enviando} onNext={handleNext} />}
     >
       <div className="flex flex-col gap-2">
         {/* Toggle CLP / kWh */}
@@ -203,7 +239,7 @@ export function Step5Consumo() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className={clsx('grid gap-2', detallada ? 'grid-cols-1' : 'sm:grid-cols-3')}
+              className={clsx('grid gap-2', detallada ? 'grid-cols-1' : 'sm:grid-cols-2')}
             >
               <EstimacionCard
                 icon={<SunMedium className="h-4 w-4" />}
@@ -211,22 +247,15 @@ export function Step5Consumo() {
                 value={`${estimacion.capacidadKwp.toFixed(2)} kWp`}
                 sub={`${estimacion.numeroPaneles} paneles`}
               />
-              {/* Precios/retorno solo para flujo residencial. Empresa/depto
+              {/* Retorno solo para flujo residencial. Empresa/depto
                   reciben cotización a detalle y no ven oferta de precio.
                   El ahorro ya se muestra arriba como número único. */}
               {!detallada && (
-                <>
-                  <EstimacionCard
-                    icon={<Zap className="h-4 w-4" />}
-                    label="Inversión referencial"
-                    value={formatCLP(estimacion.precioProyecto)}
-                  />
-                  <EstimacionCard
-                    icon={<Clock className="h-4 w-4" />}
-                    label="Retorno estimado"
-                    value={`${estimacion.paybackAnios.toFixed(1)} años`}
-                  />
-                </>
+                <EstimacionCard
+                  icon={<Clock className="h-4 w-4" />}
+                  label="Retorno estimado"
+                  value={`${estimacion.paybackAnios.toFixed(1)} años`}
+                />
               )}
             </motion.div>
           ) : !region ? (
@@ -239,6 +268,20 @@ export function Step5Consumo() {
               Vuelve al paso anterior y selecciona tu región para ver estimaciones personalizadas.
             </motion.div>
           ) : null}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {envioError && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-600"
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{envioError}</span>
+            </motion.div>
+          )}
         </AnimatePresence>
 
         <p className="text-[11px] text-slate-400">

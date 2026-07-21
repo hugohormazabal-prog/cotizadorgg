@@ -12,6 +12,8 @@ interface CotizadorStore {
   data: CotizadorState;
   status: 'editing' | 'submitting' | 'success' | 'error';
   errorMessage: string | null;
+  /** true una vez que el lead fue enviado (al avanzar de la etapa 5 a la 6) */
+  leadEnviado: boolean;
 
   goToStep: (step: Step) => void;
   next: () => void;
@@ -23,6 +25,7 @@ interface CotizadorStore {
   updateConsumo: (patch: Partial<CotizadorState['consumo']>) => void;
   updateResumen: (patch: Partial<CotizadorState['resumen']>) => void;
   setStatus: (status: CotizadorStore['status'], errorMessage?: string | null) => void;
+  setLeadEnviado: (leadEnviado: boolean) => void;
   reset: () => void;
 }
 
@@ -36,6 +39,7 @@ export const useCotizadorStore = create<CotizadorStore>()(
       data: initialCotizadorState,
       status: 'editing',
       errorMessage: null,
+      leadEnviado: false,
 
       goToStep: (step) => {
         const { maxStepReached } = get();
@@ -76,6 +80,8 @@ export const useCotizadorStore = create<CotizadorStore>()(
 
       setStatus: (status, errorMessage = null) => set({ status, errorMessage }),
 
+      setLeadEnviado: (leadEnviado) => set({ leadEnviado }),
+
       reset: () =>
         set({
           step: 1,
@@ -83,6 +89,7 @@ export const useCotizadorStore = create<CotizadorStore>()(
           data: initialCotizadorState,
           status: 'editing',
           errorMessage: null,
+          leadEnviado: false,
         }),
     }),
     {
@@ -94,6 +101,7 @@ export const useCotizadorStore = create<CotizadorStore>()(
         step: state.step,
         maxStepReached: state.maxStepReached,
         data: state.data,
+        leadEnviado: state.leadEnviado,
       }),
       // Merge defensivo: garantiza que todos los subobjetos de `data` existan
       // incluso si el estado guardado en localStorage es de una versión anterior.

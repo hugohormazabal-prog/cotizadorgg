@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Send, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Send, AlertTriangle, FileText } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 import clsx from 'clsx';
 import { StepShell } from './StepShell';
@@ -17,12 +17,13 @@ import type { Region } from '@/lib/config';
 import type { FinanciamientoOpcion } from '@/lib/estimaciones';
 
 export function Step6Resumen() {
-  const { consumo, ubicacion, resumen } = useCotizadorStore((s) => s.data);
-  const updateResumen = useCotizadorStore((s) => s.updateResumen);
+  const { consumo, ubicacion } = useCotizadorStore((s) => s.data);
   const goToStep = useCotizadorStore((s) => s.goToStep);
   const status = useCotizadorStore((s) => s.status);
   const errorMessage = useCotizadorStore((s) => s.errorMessage);
   const setStatus = useCotizadorStore((s) => s.setStatus);
+  const leadEnviado = useCotizadorStore((s) => s.leadEnviado);
+  const setLeadEnviado = useCotizadorStore((s) => s.setLeadEnviado);
   const data = useCotizadorStore((s) => s.data);
   const { config, version } = useConfig();
   const detallada = requiereCotizacionDetallada(data.propiedad.tipoPropiedad);
@@ -44,14 +45,23 @@ export function Step6Resumen() {
     return <StepShell title=""><SuccessAnimation /></StepShell>;
   }
 
-  const handleSubmit = async () => {
-    if (!resumen.aceptaTerminos || submitting) return;
+  // El lead ya se generó al avanzar de la etapa 5 a la 6 (Odoo + correo).
+  // Para el flujo detallada el botón solo confirma; reintenta el envío si
+  // por alguna razón aún no se había registrado.
+  const handleConfirmDetallada = async () => {
+    if (submitting) return;
+    if (leadEnviado) {
+      setStatus('success');
+      return;
+    }
     setSubmitting(true);
     setStatus('submitting');
     const result = await submitCotizacion(data);
     setSubmitting(false);
-    if (result.ok) setStatus('success');
-    else setStatus('error', result.error ?? 'Error al enviar. Inténtalo nuevamente.');
+    if (result.ok) {
+      setLeadEnviado(true);
+      setStatus('success');
+    } else setStatus('error', result.error ?? 'Error al enviar. Inténtalo nuevamente.');
   };
 
   return (
@@ -59,7 +69,7 @@ export function Step6Resumen() {
       title={detallada ? 'Tu estimación de ahorro' : 'Tu cotización preliminar'}
       subtitle={
         detallada
-          ? 'Para tu tipo de proyecto preparamos una cotización a detalle. Déjanos tus datos y un especialista te contactará.'
+          ? 'Para tu tipo de proyecto preparamos una cotización a detalle. Un especialista te contactará.'
           : 'Un especialista confirmará los valores finales.'
       }
       footer={
@@ -68,28 +78,26 @@ export function Step6Resumen() {
             <ArrowLeft className="h-4 w-4" />
             Volver
           </Button>
-          <div className="flex items-center gap-2">
-            {cotizacion && !detallada && (
-              <a
-                href="/cotizacion"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hidden sm:flex items-center gap-1.5 rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50 transition-colors"
-              >
-                Ver PDF completo ↗
-              </a>
-            )}
+          {detallada ? (
             <Button
               type="button"
               variant="primary"
-              disabled={!resumen.aceptaTerminos}
               loading={submitting}
-              onClick={handleSubmit}
+              onClick={handleConfirmDetallada}
             >
-              {detallada ? 'Solicitar cotización a detalle' : 'Enviar solicitud'}
+              Solicitar cotización a detalle
               <Send className="h-4 w-4" />
             </Button>
-          </div>
+          ) : (
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => window.open('/cotizacion', '_blank', 'noopener,noreferrer')}
+            >
+              Ver Propuesta Preliminar
+              <FileText className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       }
     >
@@ -105,14 +113,11 @@ export function Step6Resumen() {
         {cotizacion && (
           <>
             {/* ── KPIs principales ─────────────────────────────────────── */}
-            <div className={clsx('grid gap-2', detallada ? 'grid-cols-2' : 'grid-cols-4')}>
+            <div className={clsx('grid gap-2', detallada ? 'grid-cols-2' : 'grid-cols-3')}>
               <KPI label="Sistema" value={`${cotizacion.sistema.capacidadKwp.toFixed(1)} kWp`} accent />
               <KPI label={detallada ? 'Beneficio/mes' : 'Ahorro/mes'} value={formatCLP(cotizacion.ahorro.ahorroMensualProm)} highlight />
               {!detallada && (
-                <>
-                  <KPI label="Precio total" value={formatCLP(cotizacion.precioProyectoClp)} />
-                  <KPI label="Payback" value={`${cotizacion.paybackAnios} años`} />
-                </>
+                <KPI label="Payback" value={`${cotizacion.paybackAnios} años`} />
               )}
             </div>
 
@@ -129,9 +134,11 @@ export function Step6Resumen() {
             {/* ── Flujo residencial: oferta comercial completa ─────────── */}
             {!detallada && (
               <>
-                {/* Financiamiento */}
+                {/* Financiamiento — solo Transferencia y Mercado Pago */}
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {cotizacion.opcionesFinanciamiento.map((op) => (
+                  {cotizacion.opcionesFinanciamiento
+                    .filter((op) => op.id === 'transferencia' || op.id === 'mercadopago')
+                    .map((op) => (
                     <OpcionCard
                       key={op.id}
                       opcion={op}
@@ -170,31 +177,6 @@ export function Step6Resumen() {
             )}
           </>
         )}
-
-        {/* ── Términos ─────────────────────────────────────────────────── */}
-        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/40 bg-white/60 p-3 transition-colors hover:border-slate-300">
-          <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
-            <input
-              type="checkbox"
-              checked={resumen.aceptaTerminos}
-              onChange={(e) => updateResumen({ aceptaTerminos: e.target.checked })}
-              className="peer sr-only"
-            />
-            <span className="absolute inset-0 rounded-md border border-slate-300 bg-white transition-colors peer-checked:border-amber-400 peer-checked:bg-amber-400" />
-            <motion.svg
-              width="12" height="10" viewBox="0 0 12 10" fill="none"
-              className="relative z-10"
-              initial={false}
-              animate={{ scale: resumen.aceptaTerminos ? 1 : 0, opacity: resumen.aceptaTerminos ? 1 : 0 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-            >
-              <path d="M1 5L4.5 8.5L11 1" stroke="#050B14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </motion.svg>
-          </span>
-          <span className="text-xs leading-relaxed text-slate-700">
-            Acepto los <span className="font-medium text-amber-600 underline underline-offset-2">Términos y Condiciones</span> y autorizo a GG Electrics a contactarme.
-          </span>
-        </label>
 
         <AnimatePresence>
           {status === 'error' && errorMessage && (
@@ -303,6 +285,13 @@ function PaybackChart({
 
   const breakEvenYear = Math.ceil(paybackAnios);
 
+  // Los datos están en miles de CLP: sobre $1.000k se muestran como millones
+  // ($4,2M) para que la escala del eje sea legible y no se corte.
+  const fmtMiles = (v: number) =>
+    Math.abs(v) >= 1000
+      ? `$${(v / 1000).toLocaleString('es-CL', { maximumFractionDigits: 1 })}M`
+      : `$${v.toLocaleString('es-CL')}k`;
+
   return (
     <motion.div
       key={opcionSel}
@@ -320,7 +309,7 @@ function PaybackChart({
         </span>
       </div>
       <ResponsiveContainer width="100%" height={110}>
-        <LineChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+        <LineChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
           <XAxis
             dataKey="año"
             tick={{ fontSize: 9, fill: '#94a3b8' }}
@@ -333,7 +322,8 @@ function PaybackChart({
             tick={{ fontSize: 9, fill: '#94a3b8' }}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(v) => `$${v}k`}
+            width={44}
+            tickFormatter={fmtMiles}
           />
           <Tooltip
             contentStyle={{
@@ -344,7 +334,7 @@ function PaybackChart({
               fontSize: 10,
               padding: '4px 8px',
             }}
-            formatter={(val, name) => [`$${typeof val === 'number' ? val : 0}k`, String(name) === 'ahorro' ? 'Ahorro acum.' : String(name) === 'costo' ? 'Inversión' : 'Neto'] as [string, string]}
+            formatter={(val, name) => [fmtMiles(typeof val === 'number' ? val : 0), String(name) === 'ahorro' ? 'Ahorro acum.' : String(name) === 'costo' ? 'Inversión' : 'Neto'] as [string, string]}
             labelFormatter={(l) => `Año ${l}`}
           />
           <ReferenceLine x={breakEvenYear} stroke="#f59e0b" strokeDasharray="3 3" strokeWidth={1.5} />

@@ -2,6 +2,7 @@ import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import { CotizadorState } from './types';
 import { calcularCotizacion } from './estimaciones';
 import { getConfig, fasesPorTipoPropiedad } from './config';
+import { generarLeadOdoo } from './lead';
 import type { Region } from './config';
 
 export interface SubmitResult {
@@ -12,15 +13,14 @@ export interface SubmitResult {
 
 /**
  * Envía la solicitud de cotización a Supabase (tabla `cotizaciones`,
- * ver supabase/migrations/0001_init.sql).
+ * ver supabase/migrations/0001_init.sql) y genera el Lead en Odoo +
+ * correo formal con la propuesta (Edge Function `crear-lead-odoo`).
+ *
+ * Se invoca al avanzar de la etapa 5 a la 6.
  *
  * Si Supabase aún no está configurado (faltan variables de entorno),
- * simula un envío exitoso en "modo demo" para que el flujo completo —
- * incluida la animación de éxito — pueda probarse de inmediato.
- *
- * TODO(Hugo): una vez conectado Supabase, considera mover este envío a una
- * Server Action / Route Handler si necesitas validación adicional en backend
- * o notificaciones (email/WhatsApp) al recibir un nuevo lead.
+ * simula un envío exitoso en "modo demo" para que el flujo completo
+ * pueda probarse de inmediato.
  */
 export async function submitCotizacion(data: CotizadorState): Promise<SubmitResult> {
   const region = data.ubicacion.region as Region | '';
@@ -78,6 +78,14 @@ export async function submitCotizacion(data: CotizadorState): Promise<SubmitResu
   if (error) {
     return { ok: false, mode: 'supabase', error: error.message };
   }
+
+  // Lead en Odoo + correo formal con la propuesta (best-effort, no bloquea).
+  void generarLeadOdoo(data, {
+    capacidadKwp: estimacion?.sistema.capacidadKwp ?? null,
+    numeroPaneles: estimacion?.sistema.numeroPaneles ?? null,
+    ahorroMensual: estimacion?.ahorro.ahorroMensualProm ?? null,
+    precioProyecto: estimacion?.precioProyectoClp ?? null,
+  });
 
   return { ok: true, mode: 'supabase' };
 }
