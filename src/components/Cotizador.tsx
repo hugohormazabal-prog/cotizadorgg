@@ -52,7 +52,7 @@ export function Cotizador() {
             />
             <div className="leading-tight" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.55)' }}>
               <p className="text-sm font-bold tracking-wide text-white">GG Electrics</p>
-              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-amber-300"
+              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-200"
                 style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
                 Cotizador Solar
               </span>
@@ -62,7 +62,7 @@ export function Cotizador() {
             href="https://www.ggelectrics.cl/"
             target="_blank"
             rel="noreferrer"
-            className="hidden text-xs font-medium text-white/60 transition-colors hover:text-amber-300 sm:inline-flex"
+            className="hidden text-xs font-medium text-white/80 transition-colors hover:text-amber-300 sm:inline-flex"
           >
             ggelectrics.cl ↗
           </a>
@@ -99,13 +99,13 @@ export function Cotizador() {
           ] as const).map(({ Icon, text }) => (
             <div key={text} className="flex items-center gap-1.5">
               <Icon className="h-3 w-3 text-amber-300 shrink-0" strokeWidth={2} />
-              <span className="text-[10px] font-medium text-white/75 tracking-wide">{text}</span>
+              <span className="text-[11px] font-medium text-white/90 tracking-wide">{text}</span>
             </div>
           ))}
         </div>
 
         {/* Footer */}
-        <p className="text-center text-[10px] text-white/35">
+        <p className="text-center text-[11px] font-medium text-white/75">
           Tu progreso se guarda automáticamente — puedes continuar más tarde.
         </p>
       </div>

@@ -128,8 +128,8 @@ export function Step1Contacto() {
             <path d="M1 5L4.5 8.5L11 1" stroke="#050B14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </motion.svg>
         </span>
-        <span className="text-xs leading-relaxed text-slate-700">
-          Acepto los <span className="font-medium text-amber-600 underline underline-offset-2">Términos y Condiciones</span> y autorizo a GG Electrics a contactarme.
+        <span className="text-sm leading-relaxed text-slate-700">
+          Acepto los <span className="font-semibold text-amber-800 underline underline-offset-2">Términos y Condiciones</span> y autorizo a GG Electrics a contactarme.
         </span>
       </label>
     </StepShell>

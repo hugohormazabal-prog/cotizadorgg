@@ -48,11 +48,11 @@ export function SelectCard({ selected, onSelect, icon, title, description }: Sel
       </div>
 
       <div className="pr-5">
-        <p className={clsx('text-xs font-semibold leading-tight transition-colors', selected ? 'text-amber-700' : 'text-slate-800')}>
+        <p className={clsx('text-sm font-semibold leading-tight transition-colors', selected ? 'text-amber-800' : 'text-slate-900')}>
           {title}
         </p>
         {description && (
-          <p className="text-[10px] leading-snug text-slate-500 mt-0.5">{description}</p>
+          <p className="mt-1 text-[11px] leading-snug text-slate-600">{description}</p>
         )}
       </div>
 

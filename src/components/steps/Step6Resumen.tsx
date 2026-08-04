@@ -123,11 +123,11 @@ export function Step6Resumen() {
 
             {/* ── Generación ───────────────────────────────────────────── */}
             <div className="rounded-lg border border-white/40 bg-white/40 px-3 py-2 flex items-center justify-between text-xs">
-              <span className="text-slate-500">
+              <span className="text-slate-700">
                 {cotizacion.sistema.numeroPaneles} paneles · {formatKwh(cotizacion.sistema.generacionAnualKwh)}/año
               </span>
-              <span className="text-slate-500">
-                Ahorro anual: <span className="font-semibold text-amber-600">{formatCLP(cotizacion.ahorro.ahorroTotalAnual)}</span>
+              <span className="text-slate-700">
+                Ahorro anual: <span className="font-semibold text-amber-800">{formatCLP(cotizacion.ahorro.ahorroTotalAnual)}</span>
               </span>
             </div>
 
@@ -157,8 +157,8 @@ export function Step6Resumen() {
                   opcion={cotizacion.opcionesFinanciamiento.find(o => o.id === opcionSel) ?? cotizacion.opcionesFinanciamiento[0]}
                 />
 
-                <p className="text-[10px] text-slate-400 -mt-1">
-                  * Valores IVA incluido. <a href="/cotizacion" target="_blank" rel="noopener noreferrer" className="text-amber-600 underline underline-offset-2">Ver cotización completa con garantías y condiciones →</a>
+                <p className="-mt-1 text-xs leading-relaxed text-slate-600">
+                  * Valores IVA incluido. <a href="/cotizacion" target="_blank" rel="noopener noreferrer" className="font-medium text-amber-800 underline underline-offset-2">Ver cotización completa con garantías y condiciones →</a>
                 </p>
               </>
             )}
@@ -207,7 +207,7 @@ function KPI({ label, value, accent, highlight }: { label: string; value: string
       highlight ? 'border-sky-300/40 bg-sky-500/10' :
       'border-white/40 bg-white/40'
     )}>
-      <p className="text-[9px] font-medium uppercase tracking-wider text-slate-500">{label}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">{label}</p>
       <p className={clsx('mt-0.5 text-sm font-bold', accent ? 'text-amber-700' : highlight ? 'text-sky-700' : 'text-slate-900')}>
         {value}
       </p>
@@ -230,17 +230,17 @@ function OpcionCard({ opcion, selected, onClick }: { opcion: FinanciamientoOpcio
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-bold text-slate-900">{opcion.nombre}</p>
         {opcion.badge && (
-          <span className="shrink-0 rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">
+          <span className="shrink-0 rounded-full bg-amber-300/35 px-2 py-0.5 text-[10px] font-bold text-amber-900">
             {opcion.badge}
           </span>
         )}
       </div>
-      <p className="text-[10px] text-slate-500">{opcion.subtitulo}</p>
+      <p className="text-[11px] text-slate-700">{opcion.subtitulo}</p>
       <div className="mt-1.5 flex items-baseline gap-1">
         {opcion.cuotas > 0 ? (
-          <><span className="text-base font-bold text-slate-900">{formatCLP(opcion.cuotaMensual)}</span><span className="text-[10px] text-slate-400">/mes</span></>
+          <><span className="text-base font-bold text-slate-900">{formatCLP(opcion.cuotaMensual)}</span><span className="text-[11px] text-slate-600">/mes</span></>
         ) : (
-          <><span className="text-base font-bold text-slate-900">{formatCLP(opcion.montoTotal)}</span><span className="text-[10px] text-slate-400"> contado</span></>
+          <><span className="text-base font-bold text-slate-900">{formatCLP(opcion.montoTotal)}</span><span className="text-[11px] text-slate-600"> contado</span></>
         )}
       </div>
     </button>
@@ -301,10 +301,10 @@ function PaybackChart({
       className="rounded-xl border border-white/40 bg-white/40 p-3"
     >
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
           Retorno de inversión — 20 años
         </p>
-        <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[9px] font-bold text-amber-700">
+        <span className="rounded-full bg-amber-300/35 px-2 py-0.5 text-[10px] font-bold text-amber-900">
           Break-even año {breakEvenYear}
         </span>
       </div>
@@ -312,14 +312,14 @@ function PaybackChart({
         <LineChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
           <XAxis
             dataKey="año"
-            tick={{ fontSize: 9, fill: '#94a3b8' }}
+            tick={{ fontSize: 11, fill: '#475569' }}
             tickLine={false}
             axisLine={false}
             interval={4}
             tickFormatter={(v) => `${v}a`}
           />
           <YAxis
-            tick={{ fontSize: 9, fill: '#94a3b8' }}
+            tick={{ fontSize: 11, fill: '#475569' }}
             tickLine={false}
             axisLine={false}
             width={44}
@@ -331,7 +331,7 @@ function PaybackChart({
               backdropFilter: 'blur(12px)',
               border: '1px solid rgba(255,255,255,0.6)',
               borderRadius: 8,
-              fontSize: 10,
+              fontSize: 12,
               padding: '4px 8px',
             }}
             formatter={(val, name) => [fmtMiles(typeof val === 'number' ? val : 0), String(name) === 'ahorro' ? 'Ahorro acum.' : String(name) === 'costo' ? 'Inversión' : 'Neto'] as [string, string]}
@@ -347,7 +347,7 @@ function PaybackChart({
         {[['#10b981', 'Ahorro acum.'], ['#94a3b8', 'Inversión'], ['#f59e0b', 'Neto']].map(([color, label]) => (
           <div key={label} className="flex items-center gap-1">
             <span className="h-1.5 w-4 rounded-full" style={{ background: color }} />
-            <span className="text-[9px] text-slate-400">{label}</span>
+            <span className="text-[11px] font-medium text-slate-700">{label}</span>
           </div>
         ))}
       </div>

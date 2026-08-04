@@ -185,7 +185,7 @@ export function NominatimAutocomplete() {
 
   return (
     <div ref={containerRef} className="relative" style={{ zIndex: 20 }}>
-      <label className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+      <label className="mb-0.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-700">
         Dirección
       </label>
 
@@ -202,7 +202,7 @@ export function NominatimAutocomplete() {
           aria-haspopup="listbox"
           autoComplete="off"
           spellCheck={false}
-          className="w-full rounded-lg border border-white/50 bg-white/70 py-2 pl-8 pr-8 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/15"
+          className="w-full rounded-lg border border-white/60 bg-white/80 py-2 pl-8 pr-8 text-sm text-slate-900 placeholder-slate-500 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/15"
           placeholder="Ej: Av. Andrés Bello 2325, Providencia"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -221,7 +221,7 @@ export function NominatimAutocomplete() {
       </div>
 
       {query.length > 0 && query.length < 4 && (
-        <p className="mt-1.5 text-xs text-slate-400">Escribe al menos 4 caracteres para buscar</p>
+        <p className="mt-1.5 text-xs text-slate-600">Escribe al menos 4 caracteres para buscar</p>
       )}
 
       {/* Dropdown — z-index alto para aparecer sobre el mapa Leaflet */}
@@ -246,7 +246,7 @@ export function NominatimAutocomplete() {
                   <span className="line-clamp-1 leading-snug">{formatAddress(r.display_name)}</span>
                   {/* Muestra la región detectada como hint */}
                   {(() => { const reg = detectarRegion(r.address); return reg ? (
-                    <span className="text-[11px] text-amber-400/80">📍 {reg}</span>
+                    <span className="text-xs font-medium text-amber-800">📍 {reg}</span>
                   ) : null; })()}
                 </div>
               </button>
@@ -254,7 +254,7 @@ export function NominatimAutocomplete() {
           ))}
 
           <li className="border-t border-slate-100 px-4 py-1.5">
-            <span className="text-[11px] text-slate-400">© OpenStreetMap contributors</span>
+            <span className="text-xs text-slate-600">© OpenStreetMap contributors</span>
           </li>
         </ul>
       )}

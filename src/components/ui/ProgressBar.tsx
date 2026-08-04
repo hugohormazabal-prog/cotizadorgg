@@ -21,12 +21,12 @@ export function ProgressBar() {
       {/* Encabezado paso + % — útil sobre todo en móvil, donde los labels
           bajo los puntos se ocultan */}
       <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-700">
           Paso {step} de {TOTAL_COTIZADOR_STEPS}
-          <span className="ml-1.5 font-bold text-amber-600 sm:hidden">{LABELS[step - 1]}</span>
+          <span className="ml-1.5 font-bold text-amber-800 sm:hidden">{LABELS[step - 1]}</span>
         </span>
-        <span className="text-[10px] font-bold tabular-nums text-slate-500">
-          {pctCompletado}<span className="font-medium text-slate-400">% completado</span>
+        <span className="text-[11px] font-bold tabular-nums text-slate-700">
+          {pctCompletado}<span className="font-medium text-slate-600">% completado</span>
         </span>
       </div>
 
@@ -57,10 +57,10 @@ export function ProgressBar() {
                 whileHover={isUnlocked ? { scale: 1.1 } : undefined}
                 whileTap={isUnlocked ? { scale: 0.93 } : undefined}
                 className={clsx(
-                  'relative flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-semibold transition-colors duration-300',
+                  'relative flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-semibold transition-colors duration-300',
                   isCompleted && 'border-amber-400/70 bg-amber-500/90 text-ink-950 shadow-glow-amber',
                   isCurrent && 'border-sky-400/80 bg-sky-500/15 text-sky-600 ring-2 ring-sky-400/20',
-                  !isCompleted && !isCurrent && 'border-white/40 bg-white/40 text-slate-500',
+                  !isCompleted && !isCurrent && 'border-white/60 bg-white/60 text-slate-700',
                   isUnlocked && !isCompleted && !isCurrent && 'cursor-pointer hover:border-white/60 hover:bg-white/60',
                   !isUnlocked && 'cursor-not-allowed'
                 )}
@@ -87,8 +87,8 @@ export function ProgressBar() {
 
               <span
                 className={clsx(
-                  'mt-1 hidden text-[9px] font-medium uppercase tracking-wider sm:block',
-                  isCurrent ? 'text-amber-600' : isCompleted ? 'text-slate-500' : 'text-slate-400'
+                  'mt-1 hidden text-[11px] font-semibold uppercase tracking-wide sm:block',
+                  isCurrent ? 'text-amber-800' : isCompleted ? 'text-slate-700' : 'text-slate-600'
                 )}
               >
                 {label}

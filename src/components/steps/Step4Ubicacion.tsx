@@ -13,7 +13,7 @@ const LocationMap = dynamic(() => import('./LocationMap').then(m => m.LocationMa
   ssr: false,
   loading: () => (
     <div className="flex h-36 w-full items-center justify-center rounded-xl border border-white/40 bg-white/30">
-      <span className="text-xs text-slate-400">Cargando mapa…</span>
+      <span className="text-xs font-medium text-slate-600">Cargando mapa…</span>
     </div>
   ),
 });
@@ -81,7 +81,7 @@ export function Step4Ubicacion() {
 
         {/* Mapa — z-index 0 para que quede bajo el dropdown */}
         <div style={{ position: 'relative', zIndex: 0 }}>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-700">
             Ajusta el pin si es necesario
           </p>
           <LocationMap />
@@ -105,10 +105,10 @@ export function Step4Ubicacion() {
                   }}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
                       ☀️ Irradiación solar
                     </span>
-                    <span className="text-[9px] font-bold" style={{ color: irradiacion.color }}>
+                    <span className="text-[11px] font-bold text-slate-800">
                       {irradiacion.label} · {irradiacion.valor} kWh/m²/día
                     </span>
                   </div>
@@ -131,11 +131,11 @@ export function Step4Ubicacion() {
         {/* Región — solo muestra si NO fue auto-detectada o si el usuario quiere cambiarla */}
         <div>
           <div className="flex items-center justify-between mb-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-700">
               Región <span className="text-amber-500">*</span>
             </p>
             {ubicacion.region && (
-              <span className="text-[10px] text-amber-600 font-medium">✓ Auto-detectada</span>
+              <span className="text-[11px] text-amber-800 font-semibold">✓ Auto-detectada</span>
             )}
           </div>
           <select
@@ -162,7 +162,7 @@ export function Step4Ubicacion() {
               >
                 <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-sky-400/30 bg-sky-500/10 px-3 py-2">
                   <span className="text-base">📍</span>
-                  <p className="text-xs text-sky-700">
+                  <p className="text-sm text-sky-800">
                     <span className="font-bold">{socialCount} proyectos instalados</span> en tu región durante los últimos 12 meses
                   </p>
                 </div>

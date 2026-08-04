@@ -15,7 +15,7 @@ type InputProps = BaseProps & InputHTMLAttributes<HTMLInputElement>;
 type TextareaProps = BaseProps & TextareaHTMLAttributes<HTMLTextAreaElement>;
 
 const fieldClasses =
-  'w-full rounded-lg border bg-white/70 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all duration-200 focus:bg-white/90';
+  'w-full rounded-lg border bg-white/80 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 outline-none transition-all duration-200 focus:bg-white';
 
 function fieldStateClasses(hasError: boolean) {
   return hasError
@@ -38,7 +38,7 @@ function FieldShell({
 }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <label htmlFor={htmlFor} className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+      <label htmlFor={htmlFor} className="text-[11px] font-semibold uppercase tracking-wider text-slate-700">
         {label}
       </label>
       {children}
@@ -49,12 +49,12 @@ function FieldShell({
             initial={{ opacity: 0, y: -3 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -3 }}
-            className="text-[11px] font-medium text-red-500"
+            className="text-xs font-medium text-red-700"
           >
             {error}
           </motion.p>
         ) : hint ? (
-          <motion.p key="hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-[11px] text-slate-400">
+          <motion.p key="hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs text-slate-600">
             {hint}
           </motion.p>
         ) : null}
@@ -72,7 +72,7 @@ export const TextField = forwardRef<HTMLInputElement, InputProps>(function TextF
     <FieldShell label={label} error={error} hint={hint} htmlFor={id}>
       <div className="relative">
         {icon && (
-          <span className="pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-slate-400">
+          <span className="pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-slate-500">
             {icon}
           </span>
         )}
@@ -121,10 +121,10 @@ export function SelectField({ label, error, hint, value, onChange, options, plac
             fieldClasses,
             fieldStateClasses(Boolean(error)),
             'appearance-none pr-9',
-            !value && 'text-slate-500'
+            !value && 'text-slate-600'
           )}
         >
-          <option value="" disabled className="text-slate-400">
+          <option value="" disabled className="text-slate-600">
             {placeholder ?? 'Selecciona una opción'}
           </option>
           {options.map((opt) => (
@@ -133,7 +133,7 @@ export function SelectField({ label, error, hint, value, onChange, options, plac
             </option>
           ))}
         </select>
-        <span className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-slate-400 [&>*]:stroke-slate-400">
+        <span className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-slate-600 [&>*]:stroke-slate-600">
           <svg width="11" height="7" viewBox="0 0 12 8" fill="none" aria-hidden>
             <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>

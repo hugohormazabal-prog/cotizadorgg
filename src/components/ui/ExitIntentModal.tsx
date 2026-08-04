@@ -130,7 +130,7 @@ export function ExitIntentModal() {
                   <button
                     type="button"
                     onClick={() => { setShown(false); setDismissed(true); }}
-                    className="mt-3 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                    className="mt-3 text-xs font-medium text-slate-600 hover:text-slate-900 transition-colors"
                   >
                     No gracias, prefiero salir
                   </button>

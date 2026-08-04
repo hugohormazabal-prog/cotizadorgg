@@ -71,11 +71,11 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+      <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">
         {label}
       </label>
       {children}
-      {hint && <p className="text-[10px] text-slate-400">{hint}</p>}
+      {hint && <p className="text-xs leading-relaxed text-slate-600">{hint}</p>}
     </div>
   );
 }
@@ -99,7 +99,7 @@ function NumberInput({
 }) {
   return (
     <div className="flex items-center gap-1">
-      {prefix && <span className="text-xs text-slate-400">{prefix}</span>}
+      {prefix && <span className="text-xs text-slate-600">{prefix}</span>}
       <input
         type="number"
         value={value}
@@ -109,7 +109,7 @@ function NumberInput({
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/15"
       />
-      {suffix && <span className="text-xs text-slate-400 whitespace-nowrap">{suffix}</span>}
+      {suffix && <span className="text-xs text-slate-600 whitespace-nowrap">{suffix}</span>}
     </div>
   );
 }
@@ -236,7 +236,7 @@ export default function MantenedorPage() {
               />
             </Field>
           </div>
-          <p className="mt-3 rounded-lg bg-sky-50 px-3 py-2 text-[11px] text-sky-700">
+          <p className="mt-3 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800">
             Precio inyección efectivo (IVA inc.): <b>${precioInyeccionKwhClp(cfg).toFixed(2)}/kWh</b>
           </p>
         </Section>
@@ -269,7 +269,7 @@ export default function MantenedorPage() {
               <NumberInput value={cfg.maxPanelesMonofasico} onChange={(v) => patch('maxPanelesMonofasico', v)} min={1} max={100} suffix="paneles" />
             </Field>
           </div>
-          <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+          <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
             Factor de sobredimensionamiento (derivado, no editable):{' '}
             <b>{getFactorGeneracion(cfg).toFixed(4)}</b>{' '}
             = límite + precioConsumo×(1−límite)/precioInyección. Se recalcula solo al cambiar las tarifas o el límite.
@@ -299,7 +299,7 @@ export default function MantenedorPage() {
           <div className="space-y-5">
             {/* Transferencia */}
             <div>
-              <p className="mb-2 text-xs font-semibold text-amber-600">Transferencia / Contado</p>
+              <p className="mb-2 text-xs font-semibold text-amber-800">Transferencia / Contado</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="% descuento mostrado" hint="Solo visual. Default: 0.155">
                   <NumberInput value={cfg.descuentoTransferencia} onChange={(v) => patch('descuentoTransferencia', v)} min={0} max={1} step={0.01} />
@@ -309,7 +309,7 @@ export default function MantenedorPage() {
 
             {/* Mercado Pago */}
             <div>
-              <p className="mb-2 text-xs font-semibold text-amber-600">Mercado Pago</p>
+              <p className="mb-2 text-xs font-semibold text-amber-800">Mercado Pago</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Factor recargo MP" hint="Precio × factor = total. Default: 1.1832">
                   <NumberInput value={cfg.factorMP} onChange={(v) => patch('factorMP', v)} min={1} max={2} step={0.001} />
@@ -322,7 +322,7 @@ export default function MantenedorPage() {
 
             {/* Santander */}
             <div>
-              <p className="mb-2 text-xs font-semibold text-amber-600">Santander</p>
+              <p className="mb-2 text-xs font-semibold text-amber-800">Santander</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Factor recargo Santander" hint="Default: 1.1832 (mismo que MP)">
                   <NumberInput value={cfg.factorSantander} onChange={(v) => patch('factorSantander', v)} min={1} max={2} step={0.001} />
@@ -335,7 +335,7 @@ export default function MantenedorPage() {
 
             {/* ALZA */}
             <div>
-              <p className="mb-2 text-xs font-semibold text-amber-600">Crédito Largo Plazo (ALZA)</p>
+              <p className="mb-2 text-xs font-semibold text-amber-800">Crédito Largo Plazo (ALZA)</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Factor cuota mensual ALZA" hint="cuota_mensual / precio_proyecto. PMT derivado del Excel. Default: 0.011804">
                   <NumberInput value={cfg.factorCuotaMensualALZA} onChange={(v) => patch('factorCuotaMensualALZA', v)} min={0.001} max={0.1} step={0.000001} />
@@ -361,7 +361,7 @@ export default function MantenedorPage() {
               <NumberInput value={cfg.garantiaInstalacion} onChange={(v) => patch('garantiaInstalacion', v)} min={1} max={10} suffix="años" />
             </Field>
           </div>
-          <p className="mt-4 mb-2 text-xs font-semibold text-amber-600">Inversión de repuesto proyectada</p>
+          <p className="mt-4 mb-2 text-xs font-semibold text-amber-800">Inversión de repuesto proyectada</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Repuesto año 10 (CLP)" hint="Reemplazo inversor proyectado. Default: $518.000">
               <NumberInput value={cfg.inversionRespuesto10} onChange={(v) => patch('inversionRespuesto10', v)} min={0} suffix="CLP" />
@@ -377,7 +377,7 @@ export default function MantenedorPage() {
 
         {/* ── GENERACIÓN POR ZONA ───────────────────────────────────────── */}
         <Section icon={<BarChart2 className="h-4 w-4" />} title="Generación por Zona (kWh/kWp/mes)">
-          <p className="mb-3 text-[11px] text-slate-500">
+          <p className="mb-3 text-xs text-slate-600">
             Energía generada por kWp instalado en cada mes, según región. Fuente: hoja &quot;GEN Zona&quot; del Excel.
           </p>
           <div className="overflow-x-auto">
@@ -412,14 +412,14 @@ export default function MantenedorPage() {
                           />
                         </td>
                       ))}
-                      <td className="px-1 py-1 text-center font-semibold text-amber-600">{total}</td>
+                      <td className="px-1 py-1 text-center font-semibold text-amber-800">{total}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-[10px] text-slate-400">
+          <p className="mt-2 text-xs leading-relaxed text-slate-600">
             * Los cambios en esta tabla se guardan con &quot;Guardar cambios&quot; (en el navegador) y
             el cotizador los aplica en vivo, sin necesidad de refrescar.
           </p>

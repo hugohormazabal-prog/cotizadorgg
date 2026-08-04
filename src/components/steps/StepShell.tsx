@@ -30,7 +30,7 @@ export function StepShell({ title, subtitle, children, footer }: StepShellProps)
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.08, duration: 0.3 }}
-              className="mt-1.5 text-xs leading-relaxed text-slate-500"
+              className="mt-1.5 text-sm leading-relaxed text-slate-600"
             >
               {subtitle}
             </motion.p>

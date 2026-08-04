@@ -115,7 +115,7 @@ export function Step5Consumo() {
               onClick={() => setUnidad(u)}
               className={clsx(
                 'relative rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors duration-200',
-                consumo.unidad === u ? 'text-ink-950' : 'text-slate-500 hover:text-slate-700'
+                consumo.unidad === u ? 'text-ink-950' : 'text-slate-700 hover:text-slate-900'
               )}
             >
               {consumo.unidad === u && (
@@ -133,7 +133,7 @@ export function Step5Consumo() {
         {/* Slider */}
         <div className="rounded-lg border border-white/40 bg-white/40 p-3">
           <div className="mb-2 flex items-end justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-700">
               {consumo.unidad === 'clp' ? 'Gasto mensual en electricidad' : 'Consumo mensual aprox.'}
             </span>
             <motion.span
@@ -157,7 +157,7 @@ export function Step5Consumo() {
             onChange={(e) => handleSlider(Number(e.target.value))}
             className="w-full accent-amber-400"
           />
-          <div className="mt-2 flex justify-between text-[11px] text-slate-400">
+          <div className="mt-2 flex justify-between text-xs font-medium text-slate-600">
             <span>{consumo.unidad === 'clp' ? formatCLP(rango.min) : `${rango.min} kWh`}</span>
             <span>{consumo.unidad === 'clp' ? formatCLP(rango.max) : `${rango.max} kWh`}</span>
           </div>
@@ -203,7 +203,7 @@ export function Step5Consumo() {
           ) : null}
         </AnimatePresence>
 
-        <p className="text-[11px] text-slate-400">
+        <p className="text-xs leading-relaxed text-slate-600">
           * Estimación preliminar basada en el promedio de tu zona. Los valores finales se ajustarán
           en la cotización técnica de nuestro equipo.
         </p>
@@ -242,11 +242,11 @@ function EstimacionCard({
       >
         {icon}
       </div>
-      <p className="text-[9px] font-medium uppercase tracking-wider text-slate-500">{label}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">{label}</p>
       <p className={clsx('mt-0.5 text-sm font-bold', accent ? 'text-amber-700' : 'text-slate-900')}>
         {value}
       </p>
-      {sub && <p className="text-[10px] text-slate-400">{sub}</p>}
+      {sub && <p className="text-xs text-slate-600">{sub}</p>}
     </div>
   );
 }

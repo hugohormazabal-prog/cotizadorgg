@@ -90,7 +90,7 @@ export function SuccessAnimation() {
         >
           Gracias por confiar en GG Electrics. Nuestro equipo de especialistas revisará tu
           información y se pondrá en contacto contigo en las próximas{' '}
-          <span className="font-semibold text-amber-600">24 horas</span> para preparar tu
+          <span className="font-semibold text-amber-800">24 horas</span> para preparar tu
           propuesta a medida.
         </motion.p>
       </div>
