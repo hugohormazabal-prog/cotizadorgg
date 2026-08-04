@@ -61,7 +61,7 @@ export function Step6Resumen() {
     if (result.ok) {
       setLeadEnviado(true);
       setStatus('success');
-    } else setStatus('error', result.error ?? 'Error al enviar. Inténtalo nuevamente.');
+    } else setStatus('error', 'No pudimos registrar tu solicitud. Revisa tu conexión e inténtalo nuevamente.');
   };
 
   return (

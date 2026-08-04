@@ -73,10 +73,24 @@ export async function submitCotizacion(data: CotizadorState): Promise<SubmitResu
   // (ver `npm run` de generación de tipos en supabase/README si se agrega más
   // adelante). Hasta entonces, el cliente es genérico y aceptamos el payload
   // tal como está construido arriba, validado contra `CotizadorState`.
-  const { error } = await (supabase.from('cotizaciones') as any).insert(payload);
+  let error: { message?: string } | null = null;
+  try {
+    const result = await (supabase.from('cotizaciones') as any).insert(payload);
+    error = result.error;
+  } catch {
+    return {
+      ok: false,
+      mode: 'supabase',
+      error: 'No pudimos registrar la solicitud en este momento. Reintentaremos más adelante.',
+    };
+  }
 
   if (error) {
-    return { ok: false, mode: 'supabase', error: error.message };
+    return {
+      ok: false,
+      mode: 'supabase',
+      error: 'No pudimos registrar la solicitud en este momento. Reinténtalo más tarde.',
+    };
   }
 
   // Lead en Odoo + correo formal con la propuesta (best-effort, no bloquea).

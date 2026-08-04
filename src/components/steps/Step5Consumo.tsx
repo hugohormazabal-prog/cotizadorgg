@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SunMedium, Clock, AlertTriangle } from 'lucide-react';
+import { SunMedium, Clock } from 'lucide-react';
 import clsx from 'clsx';
 import { StepShell } from './StepShell';
 import { StepNavButtons } from './StepNavButtons';
@@ -30,8 +30,6 @@ export function Step5Consumo() {
   const leadEnviado = useCotizadorStore((s) => s.leadEnviado);
   const setLeadEnviado = useCotizadorStore((s) => s.setLeadEnviado);
   const { config, version } = useConfig();
-  const [enviando, setEnviando] = useState(false);
-  const [envioError, setEnvioError] = useState<string | null>(null);
 
   const detallada = requiereCotizacionDetallada(tipoPropiedad);
   const esCasa = tipoPropiedad === 'casa' || tipoPropiedad === 'casa_construccion';
@@ -57,7 +55,7 @@ export function Step5Consumo() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consumo, region, tipoPropiedad, config, version]);
 
-  const isValid = consumo.unidad === 'clp' ? Boolean(consumo.montoClp) : Boolean(consumo.consumoKwh);
+  const isValid = valorActual > 0;
 
   const setUnidad = (unidad: UnidadConsumo) => {
     updateConsumo({
@@ -72,30 +70,40 @@ export function Step5Consumo() {
     else updateConsumo({ consumoKwh: value });
   };
 
-  // Al avanzar a la etapa 6 se genera el lead (Supabase + Odoo) y se envía
-  // el correo formal con la propuesta. Solo una vez por sesión.
-  const handleNext = async () => {
-    if (leadEnviado) {
-      next();
-      return;
+  // La captura del lead es best-effort: una caída de red o Supabase nunca
+  // debe bloquear al cliente ni exponerle un error técnico. Si falla, el
+  // resumen conserva leadEnviado=false y puede reintentar el envío.
+  const handleNext = () => {
+    const consumoNormalizado =
+      consumo.unidad === 'clp'
+        ? { ...consumo, montoClp: consumo.montoClp ?? valorActual }
+        : { ...consumo, consumoKwh: consumo.consumoKwh ?? valorActual };
+
+    // El slider muestra un valor inicial útil aunque el usuario no lo mueva.
+    // Persistimos ese mismo valor antes de calcular/enviar la propuesta.
+    if (consumo.unidad === 'clp' && consumo.montoClp == null) {
+      updateConsumo({ montoClp: valorActual });
+    } else if (consumo.unidad === 'kwh' && consumo.consumoKwh == null) {
+      updateConsumo({ consumoKwh: valorActual });
     }
-    setEnviando(true);
-    setEnvioError(null);
-    const result = await submitCotizacion(data);
-    setEnviando(false);
-    if (result.ok) {
-      setLeadEnviado(true);
-      next();
-    } else {
-      setEnvioError(result.error ?? 'No pudimos registrar tu solicitud. Inténtalo nuevamente.');
+
+    if (!leadEnviado) {
+      void submitCotizacion({ ...data, consumo: consumoNormalizado })
+        .then((result) => {
+          if (result.ok) setLeadEnviado(true);
+        })
+        .catch(() => {
+          // El avance a la propuesta es independiente de servicios externos.
+        });
     }
+    next();
   };
 
   return (
     <StepShell
       title="Cuéntanos sobre tu consumo eléctrico"
       subtitle="Estimamos el tamaño del sistema y tu ahorro en base a tu zona y consumo actual."
-      footer={<StepNavButtons nextDisabled={!isValid || enviando} loading={enviando} onNext={handleNext} />}
+      footer={<StepNavButtons nextDisabled={!isValid} onNext={handleNext} />}
     >
       <div className="flex flex-col gap-2">
         {/* Toggle CLP / kWh */}
@@ -193,20 +201,6 @@ export function Step5Consumo() {
               Vuelve al paso anterior y selecciona tu región para ver estimaciones personalizadas.
             </motion.div>
           ) : null}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {envioError && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-600"
-            >
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{envioError}</span>
-            </motion.div>
-          )}
         </AnimatePresence>
 
         <p className="text-[11px] text-slate-400">
