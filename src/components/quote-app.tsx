@@ -27,7 +27,10 @@ import {
   Wrench,
 } from "lucide-react";
 import { ROOF_PRESETS } from "@/lib/config";
-import type { MarketDataSnapshot } from "@/lib/market-data";
+import {
+  createFallbackMarketData,
+  type MarketDataSnapshot,
+} from "@/lib/market-data";
 import {
   buildQuote,
   defaultTechnicalConfig,
@@ -40,6 +43,7 @@ import {
 } from "@/lib/quote-engine";
 import { cn, formatCurrency, formatNumber } from "@/lib/utils";
 import { useQuoteStore } from "@/store/quote-store";
+import { QuotePdfDocument } from "@/components/quote-pdf-document";
 
 type QuoteAppMode = "client" | "advisor" | "settings";
 
@@ -49,6 +53,54 @@ const batteryOptions = getAvailableBatteryNames();
 const generatorOptions = getAvailableGeneratorNames();
 const inverterOptions = getAvailableInverterNames();
 const structureOptions = getAvailableStructureNames();
+const REMOTE_CONFIG_TIMEOUT_MS = 8_000;
+const REMOTE_CONFIG_RETRY_DELAY_MS = 300;
+
+type RemoteConfigPayload = {
+  settings: ReturnType<typeof useQuoteStore.getState>["settings"];
+  marketData: MarketDataSnapshot;
+};
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+async function fetchRemoteConfig(endpoint: string): Promise<RemoteConfigPayload> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), REMOTE_CONFIG_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(endpoint, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`La configuración remota respondió ${response.status}.`);
+      }
+
+      const payload = (await response.json()) as Partial<RemoteConfigPayload>;
+
+      if (!payload.settings || !payload.marketData) {
+        throw new Error("La configuración remota llegó incompleta.");
+      }
+
+      return payload as RemoteConfigPayload;
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0) {
+        await wait(REMOTE_CONFIG_RETRY_DELAY_MS);
+      }
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+
+  throw lastError;
+}
 
 export function QuoteApp({ mode }: { mode: QuoteAppMode }) {
   const {
@@ -81,18 +133,7 @@ export function QuoteApp({ mode }: { mode: QuoteAppMode }) {
     async function loadRemoteConfig() {
       try {
         const endpoint = mode === "settings" ? "/api/admin/config" : "/api/public-config";
-        const response = await fetch(endpoint, {
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          throw new Error(`No se pudo cargar configuración remota (${response.status}).`);
-        }
-
-        const payload = (await response.json()) as {
-          settings: ReturnType<typeof useQuoteStore.getState>["settings"];
-          marketData: MarketDataSnapshot;
-        };
+        const payload = await fetchRemoteConfig(endpoint);
 
         if (cancelled) {
           return;
@@ -106,11 +147,22 @@ export function QuoteApp({ mode }: { mode: QuoteAppMode }) {
           return;
         }
 
-        setBootstrapError(
-          error instanceof Error
-            ? error.message
-            : "No se pudo sincronizar la configuración remota.",
+        const localSettings = useQuoteStore.getState().settings;
+        setMarketData(
+          createFallbackMarketData(
+            localSettings,
+            "No fue posible actualizar la UF; la cotización usa el valor local de respaldo.",
+          ),
         );
+        setBootstrapError(
+          mode === "client"
+            ? ""
+            : "Sin conexión con la configuración remota. Se está usando el respaldo local.",
+        );
+
+        if (process.env.NODE_ENV === "development") {
+          console.warn("No se pudo sincronizar la configuración remota.", error);
+        }
       }
     }
 
@@ -242,7 +294,7 @@ export function QuoteApp({ mode }: { mode: QuoteAppMode }) {
 
   return (
     <div className={getShellClass(mode)}>
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
+      <div className="quote-app-interface mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
         <header className={getHeaderClass(mode)}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
@@ -346,6 +398,17 @@ export function QuoteApp({ mode }: { mode: QuoteAppMode }) {
           />
         ) : null}
       </div>
+
+      {mode === "advisor" ? (
+        <QuotePdfDocument
+          quote={quote}
+          settings={settings}
+          customer={customer}
+          quickStart={quickStart}
+          technical={syncedTechnical}
+          marketData={marketData}
+        />
+      ) : null}
     </div>
   );
 }

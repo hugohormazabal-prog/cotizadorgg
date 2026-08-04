@@ -29,8 +29,21 @@ body {
 }
 
 @media print {
+  @page {
+    size: 957.96pt 539.04pt;
+    margin: 0;
+  }
+
+  html,
   body {
+    width: 957.96pt;
+    min-height: 539.04pt;
+    margin: 0;
     background: white;
+  }
+
+  .quote-app-interface {
+    display: none !important;
   }
 
   .no-print {
