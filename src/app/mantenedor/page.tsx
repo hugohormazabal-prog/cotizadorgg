@@ -477,7 +477,7 @@ export default function MantenedorPage() {
 
           {section === 'resumen' && (
             <>
-              <SectionCard title="Impacto antes de publicar" description="Prueba un caso patrón y compara el borrador con la versión que hoy ve la web. El documento comercial basado en la PPT se mantiene protegido.">
+              <SectionCard title="Impacto antes de publicar" description="Prueba un caso patrón y compara el borrador con la versión que hoy ve la web.">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <NumberField id="scenario-spend" label="Cuenta eléctrica del caso" value={scenarioSpend} onChange={setScenarioSpend} unit="CLP/mes" min={1} integer />
                   <FieldShell label="Región del caso" htmlFor="scenario-region">
@@ -541,7 +541,7 @@ export default function MantenedorPage() {
           )}
 
           {section === 'equipos' && (
-            <SectionCard title="Equipos activos y estructura de precio" description="El documento comercial se conserva. Aquí solo se controlan los datos y costos que alimentan el cálculo dinámico.">
+            <SectionCard title="Equipos activos y estructura de precio" description="Controla los equipos, datos y costos que alimentan el cálculo dinámico.">
               <div className="grid gap-5 md:grid-cols-2">
                 <TextField id="panel-modelo" label="Panel activo" value={config.panelMarcaModelo} onChange={(value) => patch('panelMarcaModelo', value)} reference="PAN / MAIN!C30" issue={issueFor('panelMarcaModelo')} />
                 <NumberField id="panel-potencia" label="Potencia del panel" value={config.panelPotenciaW} onChange={(value) => patch('panelPotenciaW', value)} unit="W" integer reference="PAN!G" issue={issueFor('panelPotenciaW')} />
@@ -625,15 +625,14 @@ export default function MantenedorPage() {
           )}
 
           {section === 'cobertura' && (
-            <SectionCard title="Cobertura de las 38 hojas" description="Inventario explícito para evitar omisiones. La PPT y el documento comercial quedan protegidos; hojas granel/off-grid no alimentan el formulario residencial actual.">
+            <SectionCard title="Cobertura de las 38 hojas" description="Inventario explícito para evitar omisiones y facilitar futuras ampliaciones del modelo.">
               <label htmlFor="sheet-search" className="sr-only">Buscar hoja</label>
               <div className="relative mb-4"><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" /><input id="sheet-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar hoja o función…" className="min-h-11 w-full rounded-xl border border-slate-300 pl-10 pr-3 text-base outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100" /></div>
               <div className="overflow-hidden rounded-xl border border-slate-200">
                 <div className="divide-y divide-slate-200">{EXCEL_SHEET_COVERAGE.filter(([name, role]) => `${name} ${role}`.toLowerCase().includes(search.toLowerCase())).map(([name, role, status]) => (
-                  <div key={name} className="grid gap-1 bg-white p-3 sm:grid-cols-[180px_1fr_120px] sm:items-center"><b className="text-sm">{name}</b><span className="text-sm text-slate-600">{role}</span><span className={`w-fit rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${status === 'directa' ? 'bg-emerald-100 text-emerald-800' : status === 'protegida' ? 'bg-violet-100 text-violet-800' : status === 'fuera_flujo' ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-800'}`}>{status.replace('_', ' ')}</span></div>
+                  <div key={name} className="grid gap-1 bg-white p-3 sm:grid-cols-[180px_1fr_120px] sm:items-center"><b className="text-sm">{name}</b><span className="text-sm text-slate-600">{role}</span><span className={`w-fit rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${status === 'directa' ? 'bg-emerald-100 text-emerald-800' : status === 'referencia' ? 'bg-slate-100 text-slate-600' : status === 'derivada' ? 'bg-sky-100 text-sky-800' : 'bg-amber-100 text-amber-800'}`}>{status.replace('_', ' ')}</span></div>
                 ))}</div>
               </div>
-              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><b>Importante:</b> el Excel contiene referencias externas y errores heredados (#REF!/#VALUE!). No se copiaron ciegamente; el mantenedor expone las variables válidas del flujo residencial y mantiene identificadas las hojas fuera de alcance.</div>
             </SectionCard>
           )}
         </div>
