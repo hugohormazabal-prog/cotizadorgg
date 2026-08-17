@@ -1,8 +1,7 @@
 import {
   calcularCreditoAlza,
-  costoBasePorKwpNeto,
+  costoGeneralPorKwpNeto,
   precioInyeccionKwhClp,
-  precioVentaPorKwpIva,
   REGIONES,
   type ConfigCotizador,
   type GeneracionPorZona,
@@ -76,7 +75,7 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
   finiteRange(issues, 'maxPanelesMonofasico', config.maxPanelesMonofasico, 1, 200, 'Máximo monofásico');
   finiteRange(issues, 'margen', config.margen, 0, 0.8, 'Margen');
   finiteRange(issues, 'ivaVenta', config.ivaVenta, 1, 2, 'IVA de venta');
-  finiteRange(issues, 'costoMaterialesPorKwpNeto', config.costoMaterialesPorKwpNeto, 0, 100_000_000, 'Costo de materiales');
+  finiteRange(issues, 'costoMaterialesGeneralesPorKwpNeto', config.costoMaterialesGeneralesPorKwpNeto, 0, 100_000_000, 'Costo de materiales generales');
   finiteRange(issues, 'costoServiciosPorKwpNeto', config.costoServiciosPorKwpNeto, 0, 100_000_000, 'Costo de servicios');
   finiteRange(issues, 'redondeoPrecioClp', config.redondeoPrecioClp, 1, 1_000_000, 'Redondeo de precio');
   finiteRange(issues, 'ipcAnual', config.ipcAnual, 0.8, 2, 'Factor IPC');
@@ -106,6 +105,8 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
   finiteRange(issues, 'co2FactorKgPerKwh', config.co2FactorKgPerKwh, 0, 5, 'Factor de mitigación CO₂');
 
   const integerFields: Array<[keyof ConfigCotizador, number, string]> = [
+    ['costoMaterialesGeneralesPorKwpNeto', config.costoMaterialesGeneralesPorKwpNeto, 'Costo de materiales generales'],
+    ['costoServiciosPorKwpNeto', config.costoServiciosPorKwpNeto, 'Costo de servicios'],
     ['minPaneles', config.minPaneles, 'Mínimo de paneles'],
     ['maxPanelesMonofasico', config.maxPanelesMonofasico, 'Máximo monofásico'],
     ['cuotasMP', config.cuotasMP, 'Cuotas Mercado Pago'],
@@ -153,7 +154,7 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
       severity: 'warning',
     });
   }
-  if (costoBasePorKwpNeto(config) <= 0 || !Number.isFinite(precioVentaPorKwpIva(config))) {
+  if (costoGeneralPorKwpNeto(config) <= 0 || config.margen >= 1) {
     issues.push({ field: 'margen', message: 'La estructura de costo no produce un precio finito.', severity: 'error' });
   }
 

@@ -172,10 +172,6 @@ export function EquipmentCatalogManager({ config, onChange }: { config: ConfigCo
       setFormError('Costos, precios y garantía deben ser valores positivos.');
       return;
     }
-    if (editing.margen < 0 || editing.margen >= 1) {
-      setFormError('El margen debe estar entre 0% y 99%.');
-      return;
-    }
     if (editing.id === defaultId && editing.estado !== 'active') {
       setFormError('Selecciona otro equipo predeterminado antes de desactivar este equipo.');
       return;
@@ -186,7 +182,8 @@ export function EquipmentCatalogManager({ config, onChange }: { config: ConfigCo
       id,
       nombre: name,
       marca: brand,
-      precioVentaClp: salePrice(editing.costoNetoClp, editing.margen),
+      margen: config.margen,
+      precioVentaClp: salePrice(editing.costoNetoClp, config.margen),
       actualizadoEl: today(),
     };
     if (kind === 'panels') {
@@ -253,7 +250,7 @@ export function EquipmentCatalogManager({ config, onChange }: { config: ConfigCo
               <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
                 <div><dt className="text-slate-500">Potencia</dt><dd className="font-semibold">{panel ? `${panel.potenciaW} W` : `${inverter?.potenciaAcKw} kW AC`}</dd></div>
                 <div><dt className="text-slate-500">Costo neto</dt><dd className="font-semibold">{formatCLP(item.costoNetoClp)}</dd></div>
-                <div><dt className="text-slate-500">Precio venta</dt><dd className="font-semibold">{formatCLP(item.precioVentaClp)}</dd></div>
+                <div><dt className="text-slate-500">Precio neto estimado</dt><dd className="font-semibold">{formatCLP(salePrice(item.costoNetoClp, config.margen))}</dd></div>
                 <div><dt className="text-slate-500">Garantía</dt><dd className="font-semibold">{item.garantiaAnios} años</dd></div>
                 {inverter && <><div><dt className="text-slate-500">Fases</dt><dd className="font-semibold">{inverter.fases}</dd></div><div><dt className="text-slate-500">Batería</dt><dd className="font-semibold">{inverter.soportaBateria ? 'Compatible' : 'No'}</dd></div></>}
               </dl>
@@ -301,9 +298,8 @@ export function EquipmentCatalogManager({ config, onChange }: { config: ConfigCo
                 <Toggle label="AC Coupling" checked={selectedInverter.acCoupling} onChange={(value) => setEditing({ ...selectedInverter, acCoupling: value })} />
                 <Toggle label="Paralelizable" checked={selectedInverter.paralelizable} onChange={(value) => setEditing({ ...selectedInverter, paralelizable: value })} />
               </>}
-              <FormField label="Costo neto (CLP)"><NumberInput value={editing.costoNetoClp} onChange={(value) => { const cost = value ?? 0; setEditing({ ...editing, costoNetoClp: cost, precioVentaClp: salePrice(cost, editing.margen) }); }} /></FormField>
-              <FormField label="Precio de venta calculado"><div className={`${inputClass()} flex items-center bg-slate-50 font-semibold`}>{formatCLP(salePrice(editing.costoNetoClp, editing.margen))}</div></FormField>
-              <FormField label="Margen (%)"><NumberInput value={editing.margen * 100} min={0} onChange={(value) => { const margin = (value ?? 0) / 100; setEditing({ ...editing, margen: margin, precioVentaClp: salePrice(editing.costoNetoClp, margin) }); }} /></FormField>
+              <FormField label="Costo neto (CLP)"><NumberInput value={editing.costoNetoClp} onChange={(value) => { const cost = value ?? 0; setEditing({ ...editing, costoNetoClp: cost, precioVentaClp: salePrice(cost, config.margen) }); }} /></FormField>
+              <FormField label="Precio neto estimado"><div className={`${inputClass()} flex items-center bg-slate-50 font-semibold`}>{formatCLP(salePrice(editing.costoNetoClp, config.margen))}</div></FormField>
               <FormField label="Garantía (años)"><NumberInput value={editing.garantiaAnios} min={0} step={1} onChange={(value) => setEditing({ ...editing, garantiaAnios: value ?? 0 })} /></FormField>
               <FormField label="Estado"><select className={inputClass()} value={editing.estado === 'archived' ? 'inactive' : editing.estado} onChange={(event) => setEditing({ ...editing, estado: event.target.value as EquipmentStatus })}><option value="active">Activo</option><option value="inactive">Inactivo</option></select></FormField>
               <FormField label="Ficha técnica (URL)"><input className={inputClass()} type="url" value={editing.fichaUrl ?? ''} onChange={(event) => setEditing({ ...editing, fichaUrl: event.target.value || null })} /></FormField>

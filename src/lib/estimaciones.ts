@@ -13,7 +13,6 @@ import {
   getInversorActivo,
   getPanelActivo,
   precioInyeccionKwhClp,
-  precioVentaPorKwpIva,
   redondearHaciaArriba,
   calcularCreditoAlza,
 } from './config';
@@ -93,6 +92,13 @@ export interface CotizacionCompleta {
   paybackAnios: number;
   paybackMeses: number;
   precioPorKwp: number;          // $/kWp
+  desgloseCostos: {
+    panelesNeto: number;
+    inversorNeto: number;
+    materialesGeneralesNeto: number;
+    serviciosNeto: number;
+    totalNeto: number;
+  };
   proyeccion: {
     periodoAnios: number;
     ahorroAcumuladoClp: number;
@@ -210,10 +216,14 @@ export function calcularCotizacion(params: {
   };
 
   // 4. Precio del proyecto
-  const precioBaseProyecto = capacidadKwp * precioVentaPorKwpIva(cfg);
-  const ajusteEquiposNeto = numeroPaneles * (panelActivo.precioVentaClp - 101_000)
-    + (inversorActivo.precioVentaClp - 518_000);
-  const precioSinRedondeo = Math.max(0, precioBaseProyecto + ajusteEquiposNeto * cfg.ivaVenta);
+  const panelesNeto = numeroPaneles * panelActivo.costoNetoClp;
+  const inversorNeto = inversorActivo.costoNetoClp;
+  const materialesGeneralesNeto = capacidadKwp * cfg.costoMaterialesGeneralesPorKwpNeto;
+  const serviciosNeto = capacidadKwp * cfg.costoServiciosPorKwpNeto;
+  const totalNeto = panelesNeto + inversorNeto + materialesGeneralesNeto + serviciosNeto;
+  const precioSinRedondeo = cfg.margen < 1
+    ? (totalNeto / (1 - cfg.margen)) * cfg.ivaVenta
+    : Number.POSITIVE_INFINITY;
   const precioProyectoClp = redondearHaciaArriba(
     precioSinRedondeo,
     cfg.redondeoPrecioClp,
@@ -221,6 +231,13 @@ export function calcularCotizacion(params: {
   const precioPorKwp = precioProyectoClp / capacidadKwp;
   const paybackAnios = precioProyectoClp / ahorroTotalAnual;
   const paybackMeses = Math.ceil(paybackAnios * 12);
+  const desgloseCostos = {
+    panelesNeto,
+    inversorNeto,
+    materialesGeneralesNeto,
+    serviciosNeto,
+    totalNeto,
+  };
 
   // 5. Opciones de financiamiento
   const totalMP = Math.round(precioProyectoClp * cfg.factorMP);
@@ -280,8 +297,8 @@ export function calcularCotizacion(params: {
 
   // 6. Garantías
   const garantias = [
-    { label: 'Paneles', valor: `${cfg.garantiaPaneles} años` },
-    { label: 'Inversor', valor: `${cfg.garantiaInversor} años` },
+    { label: 'Paneles', valor: `${panelActivo.garantiaAnios} años` },
+    { label: 'Inversor', valor: `${inversorActivo.garantiaAnios} años` },
     { label: 'Instalación', valor: `${cfg.garantiaInstalacion} año` },
     { label: 'Tramitación SEC', valor: '~4 meses' },
   ];
@@ -324,6 +341,7 @@ export function calcularCotizacion(params: {
     paybackAnios: Math.round(paybackAnios * 10) / 10,
     paybackMeses,
     precioPorKwp,
+    desgloseCostos,
     proyeccion: {
       periodoAnios: cfg.periodoEvaluacionAnios,
       ahorroAcumuladoClp: Math.round(ahorroAcumuladoClp),

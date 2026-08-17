@@ -74,8 +74,8 @@ export interface ConfigCotizador {
   panelActivoId: string;
   inversorActivoId: string;
 
-  // CUBICADOR / COTBACK. Precio = costos / (1 - margen) * IVA.
-  costoMaterialesPorKwpNeto: number;
+  // Costos generales. Paneles e inversor se suman desde sus catálogos.
+  costoMaterialesGeneralesPorKwpNeto: number;
   costoServiciosPorKwpNeto: number;
   margen: number;
   ivaVenta: number;
@@ -115,8 +115,12 @@ export interface ConfigCotizador {
   co2FactorKgPerKwh: number;
 }
 
+const EQUIPOS_REFERENCIA_NETO = 6 * 79_000 + 408_000;
+const CAPACIDAD_REFERENCIA_KWP = 3.72;
+const EQUIPOS_REFERENCIA_POR_KWP = EQUIPOS_REFERENCIA_NETO / CAPACIDAD_REFERENCIA_KWP;
+
 export const CONFIG_DEFAULT: ConfigCotizador = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   precioKwhClp: 250,
   precioNudoInyeccionClp: 105.7033,
   ivaInyeccion: 1.19,
@@ -134,9 +138,10 @@ export const CONFIG_DEFAULT: ConfigCotizador = {
   panelActivoId: 'panel-longi-620-w',
   inversorActivoId: 'inverter-sigen-on-grid-web',
 
-  // Reproduce el caso patrón: 3,72 kWp -> $3.919.000 IVA incluido.
-  costoMaterialesPorKwpNeto: 396_411,
-  costoServiciosPorKwpNeto: 301_993.9652118911,
+  // El total anterior de materiales incluía 6 paneles Longi y 1 inversor.
+  // Esta base conserva el caso 3,72 kWp -> $3.919.000 sin duplicar equipos.
+  costoMaterialesGeneralesPorKwpNeto: 159_314,
+  costoServiciosPorKwpNeto: 301_994,
   margen: 0.2111,
   ivaVenta: 1.19,
   redondeoPrecioClp: 1_000,
@@ -191,13 +196,8 @@ export function getFactorGeneracion(cfg: ConfigCotizador): number {
     + (cfg.precioKwhClp * (1 - cfg.limiteAutoconsumo)) / inyeccion;
 }
 
-export function costoBasePorKwpNeto(cfg: ConfigCotizador): number {
-  return cfg.costoMaterialesPorKwpNeto + cfg.costoServiciosPorKwpNeto;
-}
-
-export function precioVentaPorKwpIva(cfg: ConfigCotizador): number {
-  if (cfg.margen >= 1) return Number.POSITIVE_INFINITY;
-  return (costoBasePorKwpNeto(cfg) / (1 - cfg.margen)) * cfg.ivaVenta;
+export function costoGeneralPorKwpNeto(cfg: ConfigCotizador): number {
+  return cfg.costoMaterialesGeneralesPorKwpNeto + cfg.costoServiciosPorKwpNeto;
 }
 
 export function redondearHaciaArriba(valor: number, multiplo: number): number {
@@ -280,15 +280,28 @@ export function normalizeConfig(value: unknown): ConfigCotizador {
     else if (typeof defaultValue === 'string') normalized[key] = typeof incoming === 'string' ? incoming : '';
   }
   const merged = normalized as unknown as ConfigCotizador;
+  if (typeof raw.costoMaterialesGeneralesPorKwpNeto !== 'number') {
+    if (typeof raw.costoMaterialesPorKwpNeto === 'number') {
+      merged.costoMaterialesGeneralesPorKwpNeto = Math.max(0, Math.round(
+        raw.costoMaterialesPorKwpNeto - EQUIPOS_REFERENCIA_POR_KWP,
+      ));
+    }
+  }
+  if (Number(raw.schemaVersion ?? 0) < 4 && typeof raw.costoServiciosPorKwpNeto === 'number') {
+    merged.costoServiciosPorKwpNeto = Math.round(raw.costoServiciosPorKwpNeto);
+  }
   if (
     typeof raw.costoPorKwpClpIva === 'number'
+    && raw.costoMaterialesGeneralesPorKwpNeto == null
     && raw.costoMaterialesPorKwpNeto == null
     && raw.costoServiciosPorKwpNeto == null
   ) {
     const base = raw.costoPorKwpClpIva / merged.ivaVenta * (1 - merged.margen);
-    const materialShare = CONFIG_DEFAULT.costoMaterialesPorKwpNeto / costoBasePorKwpNeto(CONFIG_DEFAULT);
-    merged.costoMaterialesPorKwpNeto = base * materialShare;
-    merged.costoServiciosPorKwpNeto = base * (1 - materialShare);
+    const legacyMaterialShare = 396_411 / (396_411 + CONFIG_DEFAULT.costoServiciosPorKwpNeto);
+    merged.costoMaterialesGeneralesPorKwpNeto = Math.max(0, Math.round(
+      base * legacyMaterialShare - EQUIPOS_REFERENCIA_POR_KWP,
+    ));
+    merged.costoServiciosPorKwpNeto = Math.round(base * (1 - legacyMaterialShare));
   }
   merged.catalogoPaneles = normalizePanels(merged.catalogoPaneles);
   merged.catalogoInversores = normalizeInverters(merged.catalogoInversores);

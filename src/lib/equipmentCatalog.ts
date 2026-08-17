@@ -1,4 +1,4 @@
-import catalog from '@/data/equipmentCatalog.json';
+import catalog from '../data/equipmentCatalog.json';
 
 export type EquipmentStatus = 'active' | 'inactive' | 'archived';
 

@@ -12,14 +12,13 @@ import {
   REGIONES,
   cachePublishedBundle,
   calcularCreditoAlza,
-  costoBasePorKwpNeto,
+  costoGeneralPorKwpNeto,
   getConfig,
   getFactorGeneracion,
   getGeneracionPorZona,
   normalizeConfig,
   normalizeGeneration,
   precioInyeccionKwhClp,
-  precioVentaPorKwpIva,
   saveConfig,
   saveGenZona,
   type ConfigBundle,
@@ -521,17 +520,19 @@ export default function MantenedorPage() {
           {section === 'equipos' && (
             <div className="space-y-5">
               <EquipmentCatalogManager config={config} onChange={setConfig} />
-              <SectionCard title="Estructura de precio" description="Configura los costos generales y el margen aplicado a cada proyecto.">
+              <SectionCard title="Costos generales del proyecto" description="Estos costos no incluyen paneles ni inversores; ambos se toman del equipo seleccionado.">
                 <div className="grid gap-5 md:grid-cols-2">
-                  <NumberField id="cost-material" label="Costo materiales por kWp" value={config.costoMaterialesPorKwpNeto} onChange={(value) => patch('costoMaterialesPorKwpNeto', value)} unit="CLP neto" issue={issueFor('costoMaterialesPorKwpNeto')} />
-                  <NumberField id="cost-service" label="Costo servicios por kWp" value={config.costoServiciosPorKwpNeto} onChange={(value) => patch('costoServiciosPorKwpNeto', value)} unit="CLP neto" issue={issueFor('costoServiciosPorKwpNeto')} />
+                  <NumberField id="cost-material" label="Materiales generales por kWp" value={config.costoMaterialesGeneralesPorKwpNeto} onChange={(value) => patch('costoMaterialesGeneralesPorKwpNeto', value)} unit="CLP neto" integer issue={issueFor('costoMaterialesGeneralesPorKwpNeto')} />
+                  <NumberField id="cost-service" label="Costo servicios por kWp" value={config.costoServiciosPorKwpNeto} onChange={(value) => patch('costoServiciosPorKwpNeto', value)} unit="CLP neto" integer issue={issueFor('costoServiciosPorKwpNeto')} />
                   <NumberField id="margin" label="Margen objetivo" value={config.margen} onChange={(value) => patch('margen', value)} percent min={0} max={0.8} issue={issueFor('margen')} />
                   <NumberField id="iva-sale" label="IVA de venta" value={config.ivaVenta - 1} onChange={(value) => patch('ivaVenta', 1 + value)} percent min={0} max={1} issue={issueFor('ivaVenta')} />
                   <NumberField id="round-price" label="Redondeo hacia arriba" value={config.redondeoPrecioClp} onChange={(value) => patch('redondeoPrecioClp', value)} unit="CLP" integer issue={issueFor('redondeoPrecioClp')} />
                 </div>
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  <Metric label="Costo base por kWp" value={formatCLP(costoBasePorKwpNeto(config))} detail="Materiales + servicios, neto" />
-                  <Metric label="Precio venta por kWp" value={formatCLP(precioVentaPorKwpIva(config))} detail="IVA incluido" tone="amber" />
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <Metric label="Equipos seleccionados" value={formatCLP((preview?.desgloseCostos.panelesNeto ?? 0) + (preview?.desgloseCostos.inversorNeto ?? 0))} detail="Paneles + inversor del caso" tone="sky" />
+                  <Metric label="Materiales generales" value={formatCLP(preview?.desgloseCostos.materialesGeneralesNeto ?? 0)} detail="Según tamaño del sistema" />
+                  <Metric label="Servicios" value={formatCLP(preview?.desgloseCostos.serviciosNeto ?? 0)} detail="Según tamaño del sistema" />
+                  <Metric label="Costo neto total" value={formatCLP(preview?.desgloseCostos.totalNeto ?? 0)} detail={`${formatCLP(costoGeneralPorKwpNeto(config))} generales por kWp`} tone="amber" />
                 </div>
               </SectionCard>
             </div>
@@ -575,8 +576,6 @@ export default function MantenedorPage() {
                 <NumberField id="replacement-1" label="Costo primera reposición" value={config.inversionRespuesto10} onChange={(value) => patch('inversionRespuesto10', value)} unit="CLP" reference="FC Capital Propio!O30" issue={issueFor('inversionRespuesto10')} />
                 <NumberField id="replacement-year-2" label="Segunda reposición" value={config.anioReposicion2} onChange={(value) => patch('anioReposicion2', value)} unit="año" integer issue={issueFor('anioReposicion2')} />
                 <NumberField id="replacement-2" label="Costo segunda reposición" value={config.inversionRespuesto22} onChange={(value) => patch('inversionRespuesto22', value)} unit="CLP" reference="FC Capital Propio!Y30" issue={issueFor('inversionRespuesto22')} />
-                <NumberField id="warranty-panel" label="Garantía paneles" value={config.garantiaPaneles} onChange={(value) => patch('garantiaPaneles', value)} unit="años" integer reference="PAN" issue={issueFor('garantiaPaneles')} />
-                <NumberField id="warranty-inverter" label="Garantía inversor" value={config.garantiaInversor} onChange={(value) => patch('garantiaInversor', value)} unit="años" integer reference="INV" issue={issueFor('garantiaInversor')} />
                 <NumberField id="warranty-install" label="Garantía instalación" value={config.garantiaInstalacion} onChange={(value) => patch('garantiaInstalacion', value)} unit="años" integer reference="FINBACK!B62" issue={issueFor('garantiaInstalacion')} />
                 <NumberField id="co2" label="Factor mitigación CO₂" value={config.co2FactorKgPerKwh} onChange={(value) => patch('co2FactorKgPerKwh', value)} unit="kg/kWh" reference="FINBACK!B49" issue={issueFor('co2FactorKgPerKwh')} />
               </div>
