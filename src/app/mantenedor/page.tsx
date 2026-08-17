@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle, BarChart3, CheckCircle2, ChevronRight,
-  CircleDollarSign, Cloud, Download, FileClock, KeyRound, Loader2,
+  CircleDollarSign, Cloud, Download, FileClock, History, KeyRound, Loader2,
   PanelTop, RotateCcw, Save, Settings2, Sun, Upload, Zap,
 } from 'lucide-react';
 import {
@@ -33,7 +33,7 @@ import { EquipmentCatalogManager } from '@/components/maintainer/EquipmentCatalo
 
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-type SectionId = 'resumen' | 'energia' | 'equipos' | 'financiamiento' | 'proyeccion' | 'generacion';
+type SectionId = 'resumen' | 'energia' | 'equipos' | 'financiamiento' | 'proyeccion' | 'generacion' | 'cambios';
 
 const SECTIONS: { id: SectionId; label: string; icon: typeof Zap }[] = [
   { id: 'resumen', label: 'Resumen e impacto', icon: BarChart3 },
@@ -42,6 +42,7 @@ const SECTIONS: { id: SectionId; label: string; icon: typeof Zap }[] = [
   { id: 'financiamiento', label: 'Financiamiento', icon: CircleDollarSign },
   { id: 'proyeccion', label: 'Proyección y garantías', icon: FileClock },
   { id: 'generacion', label: 'Generación regional', icon: Sun },
+  { id: 'cambios', label: 'Cambios e historial', icon: History },
 ];
 
 function cloneGeneration(source: GeneracionPorZona): GeneracionPorZona {
@@ -453,8 +454,7 @@ export default function MantenedorPage() {
           )}
 
           {section === 'resumen' && (
-            <>
-              <SectionCard title="Vista previa de resultados" description="Comprueba el resultado de una simulación antes de publicar los cambios.">
+            <SectionCard title="Vista previa de resultados" description="Comprueba el resultado de una simulación antes de publicar los cambios.">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <NumberField id="scenario-spend" label="Cuenta eléctrica del caso" value={scenarioSpend} onChange={setScenarioSpend} unit="CLP/mes" min={1} integer />
                   <FieldShell label="Región del caso" htmlFor="scenario-region">
@@ -473,9 +473,12 @@ export default function MantenedorPage() {
                     <Metric label="Cuota ALZA" value={formatCLP(alzaPreview?.cuotaMensual ?? 0)} detail={`${(alzaPreview?.cuotaUf ?? 0).toLocaleString('es-CL', { maximumFractionDigits: 2 })} UF · ${config.cuotasALZA} meses`} />
                   </div>
                 )}
-              </SectionCard>
+            </SectionCard>
+          )}
 
-              <SectionCard title="Control de cambios" description="Guarda un borrador, documenta el motivo y publica solo cuando la validación y el impacto estén correctos.">
+          {section === 'cambios' && (
+            <div className="space-y-5">
+              <SectionCard title="Publicación y respaldo" description="Administra borradores, respaldos y restauraciones de la configuración.">
                 <label htmlFor="change-comment" className="text-sm font-semibold text-slate-800">Motivo del cambio</label>
                 <textarea id="change-comment" value={comment} onChange={(event) => setComment(event.target.value)} maxLength={500} rows={3} placeholder="Ej.: actualización de tarifas y costos de instalación de agosto" className="mt-2 w-full rounded-xl border border-slate-300 p-3 text-base outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100" />
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -484,19 +487,19 @@ export default function MantenedorPage() {
                   <input ref={importRef} type="file" accept="application/json,.json" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importConfig(file); event.target.value = ''; }} />
                   <button type="button" onClick={restoreDefaults} className="flex min-h-11 items-center gap-2 rounded-xl border border-rose-200 px-3 text-sm font-semibold text-rose-700"><RotateCcw className="h-4 w-4" /> Restaurar valores iniciales</button>
                 </div>
-                {history.length > 0 && (
-                  <div className="mt-6 border-t border-slate-200 pt-5">
-                    <h3 className="font-bold">Historial reciente</h3>
-                    <div className="mt-3 space-y-2">{history.slice(0, 8).map((item) => (
-                      <div key={`${item.version}-${item.status}`} className="flex flex-col gap-2 rounded-xl border border-slate-200 p-3 sm:flex-row sm:items-center">
-                        <div className="min-w-0 flex-1"><p className="text-sm font-semibold">Versión {item.version} · {item.status === 'published' ? 'publicada' : item.status === 'draft' ? 'borrador' : 'archivada'}</p><p className="truncate text-xs text-slate-500">{item.comment || 'Sin comentario'}{item.updatedAt ? ` · ${new Date(item.updatedAt).toLocaleString('es-CL')}` : ''}</p></div>
-                        <button type="button" onClick={() => { setConfig(normalizeConfig(item.config)); setGenZona(cloneGeneration(normalizeGeneration(item.genZona))); setMessage({ type: 'info', text: `Versión ${item.version} cargada como borrador.` }); }} className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm font-semibold">Cargar</button>
-                      </div>
-                    ))}</div>
-                  </div>
-                )}
               </SectionCard>
-            </>
+
+              <SectionCard title="Historial de versiones" description="Consulta versiones publicadas y borradores guardados.">
+                {history.length > 0 ? (
+                  <div className="space-y-2">{history.slice(0, 20).map((item) => (
+                    <div key={`${item.version}-${item.status}`} className="flex flex-col gap-2 rounded-xl border border-slate-200 p-3 sm:flex-row sm:items-center">
+                      <div className="min-w-0 flex-1"><p className="text-sm font-semibold">Versión {item.version} · {item.status === 'published' ? 'publicada' : item.status === 'draft' ? 'borrador' : 'archivada'}</p><p className="truncate text-xs text-slate-500">{item.comment || 'Sin comentario'}{item.updatedAt ? ` · ${new Date(item.updatedAt).toLocaleString('es-CL')}` : ''}</p></div>
+                      <button type="button" onClick={() => { setConfig(normalizeConfig(item.config)); setGenZona(cloneGeneration(normalizeGeneration(item.genZona))); setMessage({ type: 'info', text: `Versión ${item.version} cargada como borrador.` }); }} className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm font-semibold">Cargar como borrador</button>
+                    </div>
+                  ))}</div>
+                ) : <p className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Aún no hay versiones guardadas.</p>}
+              </SectionCard>
+            </div>
           )}
 
           {section === 'energia' && (
