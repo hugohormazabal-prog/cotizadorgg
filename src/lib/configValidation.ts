@@ -34,6 +34,37 @@ function finiteRange(
 export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZona): ConfigIssue[] {
   const issues: ConfigIssue[] = [];
 
+  const validateCatalog = (kind: 'panel' | 'inversor'): void => {
+    const catalog = kind === 'panel' ? config.catalogoPaneles : config.catalogoInversores;
+    const activeId = kind === 'panel' ? config.panelActivoId : config.inversorActivoId;
+    const field = kind === 'panel' ? 'catalogoPaneles' : 'catalogoInversores';
+    const label = kind === 'panel' ? 'panel' : 'inversor';
+    if (catalog.length === 0) {
+      issues.push({ field, message: `Agrega al menos un ${label}.`, severity: 'error' });
+      return;
+    }
+    const ids = new Set<string>();
+    const names = new Set<string>();
+    for (const item of catalog) {
+      const normalizedName = item.nombre.trim().toLocaleLowerCase('es-CL');
+      if (!item.id || ids.has(item.id)) issues.push({ field, message: `Hay ${label}es con identificadores duplicados.`, severity: 'error' });
+      if (!normalizedName || names.has(normalizedName)) issues.push({ field, message: `Hay ${label}es con nombres vacíos o duplicados.`, severity: 'error' });
+      ids.add(item.id);
+      names.add(normalizedName);
+      const power = kind === 'panel' ? config.catalogoPaneles.find((entry) => entry.id === item.id)?.potenciaW : config.catalogoInversores.find((entry) => entry.id === item.id)?.potenciaAcKw;
+      if (!Number.isFinite(power) || (power ?? 0) <= 0) issues.push({ field, message: `${item.nombre || `Un ${label}`} debe tener una potencia válida.`, severity: 'error' });
+      if (item.estado === 'active' && (!Number.isFinite(item.costoNetoClp) || item.costoNetoClp <= 0)) issues.push({ field, message: `${item.nombre} debe tener un costo neto mayor que cero.`, severity: 'error' });
+      if (!Number.isFinite(item.precioVentaClp) || item.precioVentaClp < 0 || !Number.isFinite(item.garantiaAnios) || item.garantiaAnios < 0) issues.push({ field, message: `Revisa precio y garantía de ${item.nombre}.`, severity: 'error' });
+      if (!Number.isFinite(item.margen) || item.margen < 0 || item.margen >= 1) issues.push({ field, message: `Revisa el margen de ${item.nombre}.`, severity: 'error' });
+    }
+    if (!catalog.some((item) => item.id === activeId && item.estado === 'active')) {
+      issues.push({ field, message: `Selecciona un ${label} activo como predeterminado.`, severity: 'error' });
+    }
+  };
+
+  validateCatalog('panel');
+  validateCatalog('inversor');
+
   finiteRange(issues, 'precioKwhClp', config.precioKwhClp, 1, 10_000, 'Precio de consumo');
   finiteRange(issues, 'precioNudoInyeccionClp', config.precioNudoInyeccionClp, 0.01, 10_000, 'Precio de nudo');
   finiteRange(issues, 'ivaInyeccion', config.ivaInyeccion, 1, 2, 'Factor IVA de inyección');

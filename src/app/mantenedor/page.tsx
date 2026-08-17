@@ -2,13 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlertTriangle, BarChart3, BookOpenCheck, CheckCircle2, ChevronRight,
+  AlertTriangle, BarChart3, CheckCircle2, ChevronRight,
   CircleDollarSign, Cloud, Download, FileClock, KeyRound, Loader2,
-  PanelTop, RotateCcw, Save, Search, Settings2, Sun, Upload, Zap,
+  PanelTop, RotateCcw, Save, Settings2, Sun, Upload, Zap,
 } from 'lucide-react';
 import {
   CONFIG_DEFAULT,
-  EXCEL_SHEET_COVERAGE,
   GENERACION_POR_ZONA,
   REGIONES,
   cachePublishedBundle,
@@ -31,10 +30,11 @@ import {
 } from '@/lib/config';
 import { calcularCotizacion, formatCLP } from '@/lib/estimaciones';
 import { hasErrors, validateConfig, type ConfigIssue } from '@/lib/configValidation';
+import { EquipmentCatalogManager } from '@/components/maintainer/EquipmentCatalogManager';
 
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-type SectionId = 'resumen' | 'energia' | 'equipos' | 'financiamiento' | 'proyeccion' | 'generacion' | 'cobertura';
+type SectionId = 'resumen' | 'energia' | 'equipos' | 'financiamiento' | 'proyeccion' | 'generacion';
 
 const SECTIONS: { id: SectionId; label: string; icon: typeof Zap }[] = [
   { id: 'resumen', label: 'Resumen e impacto', icon: BarChart3 },
@@ -43,7 +43,6 @@ const SECTIONS: { id: SectionId; label: string; icon: typeof Zap }[] = [
   { id: 'financiamiento', label: 'Financiamiento', icon: CircleDollarSign },
   { id: 'proyeccion', label: 'Proyección y garantías', icon: FileClock },
   { id: 'generacion', label: 'Generación regional', icon: Sun },
-  { id: 'cobertura', label: 'Cobertura del Excel', icon: BookOpenCheck },
 ];
 
 function cloneGeneration(source: GeneracionPorZona): GeneracionPorZona {
@@ -61,7 +60,13 @@ function fieldChangeCount(
   baseGeneration: GeneracionPorZona,
 ): number {
   let count = (Object.keys(config) as (keyof ConfigCotizador)[])
-    .filter((key) => config[key] !== baseConfig[key]).length;
+    .filter((key) => {
+      const current = config[key];
+      const base = baseConfig[key];
+      return typeof current === 'object' || typeof base === 'object'
+        ? JSON.stringify(current) !== JSON.stringify(base)
+        : current !== base;
+    }).length;
   for (const region of REGIONES) {
     count += genZona[region].filter((value, month) => value !== baseGeneration[region][month]).length;
   }
@@ -72,7 +77,7 @@ function apiHeaders(accessKey: string): Record<string, string> {
   return accessKey ? { 'x-mantenedor-key': accessKey } : {};
 }
 
-function FieldShell({ label, htmlFor, hint, reference, error, children }: {
+function FieldShell({ label, htmlFor, hint, error, children }: {
   label: string;
   htmlFor?: string;
   hint?: string;
@@ -82,11 +87,10 @@ function FieldShell({ label, htmlFor, hint, reference, error, children }: {
 }) {
   return (
     <div className="min-w-0 space-y-1.5">
-      <div className="flex flex-wrap items-center justify-between gap-1">
+      <div className="flex flex-wrap items-center gap-1">
         {htmlFor
           ? <label htmlFor={htmlFor} className="text-sm font-semibold text-slate-800">{label}</label>
           : <span className="text-sm font-semibold text-slate-800">{label}</span>}
-        {reference && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{reference}</span>}
       </div>
       {children}
       {error
@@ -144,31 +148,6 @@ function NumberField({ id, label, value, onChange, unit, hint, reference, min, m
   );
 }
 
-function TextField({ id, label, value, onChange, hint, reference, issue }: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  hint?: string;
-  reference?: string;
-  issue?: ConfigIssue;
-}) {
-  return (
-    <FieldShell label={label} htmlFor={id} hint={hint} reference={reference} error={issue?.message}>
-      <input
-        id={id}
-        type="text"
-        maxLength={120}
-        value={value}
-        aria-invalid={issue?.severity === 'error' || undefined}
-        aria-describedby={issue || hint ? `${id}-help` : undefined}
-        onChange={(event) => onChange(event.target.value)}
-        className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-950 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
-      />
-    </FieldShell>
-  );
-}
-
 function SectionCard({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
@@ -214,7 +193,6 @@ export default function MantenedorPage() {
   const [scenarioRegion, setScenarioRegion] = useState<Region>('Metropolitana');
   const [accessKey, setAccessKey] = useState('');
   const [needsKey, setNeedsKey] = useState(false);
-  const [search, setSearch] = useState('');
   const importRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async (key = accessKey) => {
@@ -358,10 +336,10 @@ export default function MantenedorPage() {
   };
 
   const restoreDefaults = () => {
-    if (!window.confirm('¿Restaurar todos los campos y la matriz regional a los valores auditados del Excel?')) return;
+    if (!window.confirm('¿Restaurar toda la configuración a sus valores iniciales?')) return;
     setConfig(CONFIG_DEFAULT);
     setGenZona(cloneGeneration(GENERACION_POR_ZONA));
-    setMessage({ type: 'info', text: 'Defaults cargados como borrador. Aún no se han publicado.' });
+    setMessage({ type: 'info', text: 'Valores iniciales cargados como borrador. Aún no se han publicado.' });
   };
 
   const exportConfig = () => {
@@ -477,7 +455,7 @@ export default function MantenedorPage() {
 
           {section === 'resumen' && (
             <>
-              <SectionCard title="Impacto antes de publicar" description="Prueba un caso patrón y compara el borrador con la versión que hoy ve la web.">
+              <SectionCard title="Vista previa de resultados" description="Comprueba el resultado de una simulación antes de publicar los cambios.">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <NumberField id="scenario-spend" label="Cuenta eléctrica del caso" value={scenarioSpend} onChange={setScenarioSpend} unit="CLP/mes" min={1} integer />
                   <FieldShell label="Región del caso" htmlFor="scenario-region">
@@ -505,7 +483,7 @@ export default function MantenedorPage() {
                   <button type="button" onClick={exportConfig} className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-3 text-sm font-semibold"><Download className="h-4 w-4" /> Exportar JSON</button>
                   <button type="button" onClick={() => importRef.current?.click()} className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-3 text-sm font-semibold"><Upload className="h-4 w-4" /> Importar JSON</button>
                   <input ref={importRef} type="file" accept="application/json,.json" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importConfig(file); event.target.value = ''; }} />
-                  <button type="button" onClick={restoreDefaults} className="flex min-h-11 items-center gap-2 rounded-xl border border-rose-200 px-3 text-sm font-semibold text-rose-700"><RotateCcw className="h-4 w-4" /> Restaurar defaults</button>
+                  <button type="button" onClick={restoreDefaults} className="flex min-h-11 items-center gap-2 rounded-xl border border-rose-200 px-3 text-sm font-semibold text-rose-700"><RotateCcw className="h-4 w-4" /> Restaurar valores iniciales</button>
                 </div>
                 {history.length > 0 && (
                   <div className="mt-6 border-t border-slate-200 pt-5">
@@ -523,7 +501,7 @@ export default function MantenedorPage() {
           )}
 
           {section === 'energia' && (
-            <SectionCard title="Energía y reglas de dimensionamiento" description="Variables de MAIN, INPUT y FINBACK. Los derivados son solo lectura para evitar combinaciones incoherentes.">
+            <SectionCard title="Energía y dimensionamiento" description="Configura las tarifas, el autoconsumo y los límites usados en cada simulación.">
               <div className="grid gap-5 md:grid-cols-2">
                 <NumberField id="precio-kwh" label="Tarifa de consumo" value={config.precioKwhClp} onChange={(value) => patch('precioKwhClp', value)} unit="CLP/kWh" reference="MAIN!C71" issue={issueFor('precioKwhClp')} />
                 <NumberField id="precio-nudo" label="Precio de nudo sin IVA" value={config.precioNudoInyeccionClp} onChange={(value) => patch('precioNudoInyeccionClp', value)} unit="CLP/kWh" reference="MAIN!C72" issue={issueFor('precioNudoInyeccionClp')} />
@@ -535,47 +513,46 @@ export default function MantenedorPage() {
               </div>
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <Metric label="Inyección efectiva" value={`${precioInyeccionKwhClp(config).toLocaleString('es-CL', { maximumFractionDigits: 4 })} CLP/kWh`} detail="Precio de nudo × IVA" tone="sky" />
-                <Metric label="Factor de generación" value={getFactorGeneracion(config).toLocaleString('es-CL', { maximumFractionDigits: 4 })} detail="Derivado; no se edita manualmente" tone="amber" />
+                <Metric label="Factor de generación" value={getFactorGeneracion(config).toLocaleString('es-CL', { maximumFractionDigits: 4 })} detail="Calculado automáticamente" tone="amber" />
               </div>
             </SectionCard>
           )}
 
           {section === 'equipos' && (
-            <SectionCard title="Equipos activos y estructura de precio" description="Controla los equipos, datos y costos que alimentan el cálculo dinámico.">
-              <div className="grid gap-5 md:grid-cols-2">
-                <TextField id="panel-modelo" label="Panel activo" value={config.panelMarcaModelo} onChange={(value) => patch('panelMarcaModelo', value)} reference="PAN / MAIN!C30" issue={issueFor('panelMarcaModelo')} />
-                <NumberField id="panel-potencia" label="Potencia del panel" value={config.panelPotenciaW} onChange={(value) => patch('panelPotenciaW', value)} unit="W" integer reference="PAN!G" issue={issueFor('panelPotenciaW')} />
-                <TextField id="inversor-modelo" label="Inversor activo" value={config.inversorMarcaModelo} onChange={(value) => patch('inversorMarcaModelo', value)} reference="INV / COTBACK!B57" issue={issueFor('inversorMarcaModelo')} />
-                <NumberField id="inversor-min" label="Potencia mínima inversor" value={config.inversorPotenciaMinKw} onChange={(value) => patch('inversorPotenciaMinKw', value)} unit="kW" reference="COTBACK!B58" issue={issueFor('inversorPotenciaMinKw')} />
-                <NumberField id="cost-material" label="Costo materiales por kWp" value={config.costoMaterialesPorKwpNeto} onChange={(value) => patch('costoMaterialesPorKwpNeto', value)} unit="CLP neto" reference="CUBICADOR!K4" issue={issueFor('costoMaterialesPorKwpNeto')} />
-                <NumberField id="cost-service" label="Costo servicios por kWp" value={config.costoServiciosPorKwpNeto} onChange={(value) => patch('costoServiciosPorKwpNeto', value)} unit="CLP neto" reference="CUBICADOR!K5" issue={issueFor('costoServiciosPorKwpNeto')} />
-                <NumberField id="margin" label="Margen objetivo" value={config.margen} onChange={(value) => patch('margen', value)} percent min={0} max={0.8} reference="MAIN!C26" issue={issueFor('margen')} />
-                <NumberField id="iva-sale" label="IVA de venta" value={config.ivaVenta - 1} onChange={(value) => patch('ivaVenta', 1 + value)} percent min={0} max={1} reference="COT_ONGRID" issue={issueFor('ivaVenta')} />
-                <NumberField id="round-price" label="Redondeo hacia arriba" value={config.redondeoPrecioClp} onChange={(value) => patch('redondeoPrecioClp', value)} unit="CLP" integer reference="COT_ONGRID!A77" issue={issueFor('redondeoPrecioClp')} />
-              </div>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <Metric label="Costo base por kWp" value={formatCLP(costoBasePorKwpNeto(config))} detail="Materiales + servicios, neto" />
-                <Metric label="Precio venta por kWp" value={formatCLP(precioVentaPorKwpIva(config))} detail="IVA incluido, antes del redondeo del proyecto" tone="amber" />
-              </div>
-            </SectionCard>
+            <div className="space-y-5">
+              <EquipmentCatalogManager config={config} onChange={setConfig} />
+              <SectionCard title="Estructura de precio" description="Configura los costos generales y el margen aplicado a cada proyecto.">
+                <div className="grid gap-5 md:grid-cols-2">
+                  <NumberField id="cost-material" label="Costo materiales por kWp" value={config.costoMaterialesPorKwpNeto} onChange={(value) => patch('costoMaterialesPorKwpNeto', value)} unit="CLP neto" issue={issueFor('costoMaterialesPorKwpNeto')} />
+                  <NumberField id="cost-service" label="Costo servicios por kWp" value={config.costoServiciosPorKwpNeto} onChange={(value) => patch('costoServiciosPorKwpNeto', value)} unit="CLP neto" issue={issueFor('costoServiciosPorKwpNeto')} />
+                  <NumberField id="margin" label="Margen objetivo" value={config.margen} onChange={(value) => patch('margen', value)} percent min={0} max={0.8} issue={issueFor('margen')} />
+                  <NumberField id="iva-sale" label="IVA de venta" value={config.ivaVenta - 1} onChange={(value) => patch('ivaVenta', 1 + value)} percent min={0} max={1} issue={issueFor('ivaVenta')} />
+                  <NumberField id="round-price" label="Redondeo hacia arriba" value={config.redondeoPrecioClp} onChange={(value) => patch('redondeoPrecioClp', value)} unit="CLP" integer issue={issueFor('redondeoPrecioClp')} />
+                </div>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <Metric label="Costo base por kWp" value={formatCLP(costoBasePorKwpNeto(config))} detail="Materiales + servicios, neto" />
+                  <Metric label="Precio venta por kWp" value={formatCLP(precioVentaPorKwpIva(config))} detail="IVA incluido" tone="amber" />
+                </div>
+              </SectionCard>
+            </div>
           )}
 
           {section === 'financiamiento' && (
             <div className="space-y-5">
-              <SectionCard title="Tarjetas" description="Cada medio mantiene su propio factor y plazo; cambiar Santander ya no altera Mercado Pago.">
+              <SectionCard title="Tarjetas" description="Configura el recargo total y el número de cuotas de cada medio de pago.">
                 <div className="grid gap-5 md:grid-cols-2">
-                  <NumberField id="mp-factor" label="Factor total Mercado Pago" value={config.factorMP} onChange={(value) => patch('factorMP', value)} unit="× precio" reference="FC MP" issue={issueFor('factorMP')} />
+                  <NumberField id="mp-factor" label="Recargo Mercado Pago" value={config.factorMP - 1} onChange={(value) => patch('factorMP', 1 + value)} percent min={0} max={4} issue={issueFor('factorMP')} />
                   <NumberField id="mp-quota" label="Cuotas Mercado Pago" value={config.cuotasMP} onChange={(value) => patch('cuotasMP', value)} unit="meses" integer reference="COT_ONGRID" issue={issueFor('cuotasMP')} />
-                  <NumberField id="san-factor" label="Factor total Santander" value={config.factorSantander} onChange={(value) => patch('factorSantander', value)} unit="× precio" reference="13% + IVA" issue={issueFor('factorSantander')} />
+                  <NumberField id="san-factor" label="Recargo Santander" value={config.factorSantander - 1} onChange={(value) => patch('factorSantander', 1 + value)} percent min={0} max={4} issue={issueFor('factorSantander')} />
                   <NumberField id="san-quota" label="Cuotas Santander" value={config.cuotasSantander} onChange={(value) => patch('cuotasSantander', value)} unit="meses" integer reference="FC SANTANDER" issue={issueFor('cuotasSantander')} />
                 </div>
               </SectionCard>
-              <SectionCard title="Crédito verde ALZA" description="La cuota se recalcula automáticamente con la fórmula completa de CREDITOALZA; ya no existe un factor mensual manual.">
+              <SectionCard title="Crédito verde ALZA" description="Configura la tasa, el plazo, los gastos y las garantías del financiamiento.">
                 <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                   <NumberField id="alza-rate" label="Tasa anual" value={config.alzaTasaAnual} onChange={(value) => patch('alzaTasaAnual', value)} percent reference="CREDITOALZA!C25" issue={issueFor('alzaTasaAnual')} />
                   <NumberField id="alza-term" label="Plazo" value={config.cuotasALZA} onChange={(value) => patch('cuotasALZA', value)} unit="meses" integer reference="CREDITOALZA!C24" issue={issueFor('cuotasALZA')} />
                   <NumberField id="alza-grace" label="Meses de gracia" value={config.alzaMesesGracia} onChange={(value) => patch('alzaMesesGracia', value)} unit="meses" integer reference="CREDITOALZA!C23" issue={issueFor('alzaMesesGracia')} />
-                  <NumberField id="alza-fee" label="Financial fee" value={config.alzaFinancialFee} onChange={(value) => patch('alzaFinancialFee', value)} percent reference="CREDITOALZA!D20" issue={issueFor('alzaFinancialFee')} />
+                  <NumberField id="alza-fee" label="Costo financiero" value={config.alzaFinancialFee} onChange={(value) => patch('alzaFinancialFee', value)} percent issue={issueFor('alzaFinancialFee')} />
                   <NumberField id="alza-guarantee-cap" label="Garantía sobre capital" value={config.alzaGarantiaCapital} onChange={(value) => patch('alzaGarantiaCapital', value)} percent reference="CREDITOALZA!C14" issue={issueFor('alzaGarantiaCapital')} />
                   <NumberField id="alza-guarantee-exp" label="Garantía sobre gastos" value={config.alzaGarantiaGastos} onChange={(value) => patch('alzaGarantiaGastos', value)} percent reference="CREDITOALZA!C14" issue={issueFor('alzaGarantiaGastos')} />
                   <NumberField id="alza-uf-cost" label="Gastos variables" value={config.alzaGastosUf} onChange={(value) => patch('alzaGastosUf', value)} unit="UF" reference="4,27 + 3,2 UF" issue={issueFor('alzaGastosUf')} />
@@ -588,7 +565,7 @@ export default function MantenedorPage() {
           )}
 
           {section === 'proyeccion' && (
-            <SectionCard title="Proyección, reposiciones y garantías" description="Estas variables ahora alimentan la proyección del motor y la vista previa de impacto.">
+            <SectionCard title="Proyección, reposiciones y garantías" description="Configura los supuestos usados para proyectar ahorro, reposiciones y garantías.">
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                 <NumberField id="ipc" label="IPC anual" value={config.ipcAnual - 1} onChange={(value) => patch('ipcAnual', 1 + value)} percent reference="FC*!C5" issue={issueFor('ipcAnual')} />
                 <NumberField id="degradation" label="Degradación anual" value={config.degradacionPaneles} onChange={(value) => patch('degradacionPaneles', value)} percent reference="FC*!C6" issue={issueFor('degradacionPaneles')} />
@@ -607,7 +584,7 @@ export default function MantenedorPage() {
           )}
 
           {section === 'generacion' && (
-            <SectionCard title="Generación mensual por región" description="Edición móvil y desktop en 12 campos grandes. El total anual es derivado y se valida antes de publicar.">
+            <SectionCard title="Generación mensual por región" description="Ingresa la generación específica de cada mes. El total anual se calcula automáticamente.">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                 <FieldShell label="Región" htmlFor="generation-region">
                   <select id="generation-region" value={selectedRegion} onChange={(event) => setSelectedRegion(event.target.value as Region)} className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base outline-none sm:min-w-64">{REGIONES.map((region) => <option key={region}>{region}</option>)}</select>
@@ -624,17 +601,6 @@ export default function MantenedorPage() {
             </SectionCard>
           )}
 
-          {section === 'cobertura' && (
-            <SectionCard title="Cobertura de las 38 hojas" description="Inventario explícito para evitar omisiones y facilitar futuras ampliaciones del modelo.">
-              <label htmlFor="sheet-search" className="sr-only">Buscar hoja</label>
-              <div className="relative mb-4"><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" /><input id="sheet-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar hoja o función…" className="min-h-11 w-full rounded-xl border border-slate-300 pl-10 pr-3 text-base outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100" /></div>
-              <div className="overflow-hidden rounded-xl border border-slate-200">
-                <div className="divide-y divide-slate-200">{EXCEL_SHEET_COVERAGE.filter(([name, role]) => `${name} ${role}`.toLowerCase().includes(search.toLowerCase())).map(([name, role, status]) => (
-                  <div key={name} className="grid gap-1 bg-white p-3 sm:grid-cols-[180px_1fr_120px] sm:items-center"><b className="text-sm">{name}</b><span className="text-sm text-slate-600">{role}</span><span className={`w-fit rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${status === 'directa' ? 'bg-emerald-100 text-emerald-800' : status === 'referencia' ? 'bg-slate-100 text-slate-600' : status === 'derivada' ? 'bg-sky-100 text-sky-800' : 'bg-amber-100 text-amber-800'}`}>{status.replace('_', ' ')}</span></div>
-                ))}</div>
-              </div>
-            </SectionCard>
-          )}
         </div>
       </div>
     </main>

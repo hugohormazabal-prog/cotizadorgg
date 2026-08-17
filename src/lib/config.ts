@@ -1,5 +1,13 @@
-// Configuración auditable del cotizador residencial.
-// Defaults y referencias revisados contra "Cotizador Residencial.xlsm".
+import {
+  DEFAULT_INVERTERS,
+  DEFAULT_PANELS,
+  normalizeInverters,
+  normalizePanels,
+  type InverterCatalogItem,
+  type PanelCatalogItem,
+} from './equipmentCatalog';
+
+// Configuración del cotizador residencial.
 
 export type Region =
   | 'De Arica'
@@ -61,6 +69,10 @@ export interface ConfigCotizador {
   panelMarcaModelo: string;
   inversorMarcaModelo: string;
   inversorPotenciaMinKw: number;
+  catalogoPaneles: PanelCatalogItem[];
+  catalogoInversores: InverterCatalogItem[];
+  panelActivoId: string;
+  inversorActivoId: string;
 
   // CUBICADOR / COTBACK. Precio = costos / (1 - margen) * IVA.
   costoMaterialesPorKwpNeto: number;
@@ -104,7 +116,7 @@ export interface ConfigCotizador {
 }
 
 export const CONFIG_DEFAULT: ConfigCotizador = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   precioKwhClp: 250,
   precioNudoInyeccionClp: 105.7033,
   ivaInyeccion: 1.19,
@@ -117,6 +129,10 @@ export const CONFIG_DEFAULT: ConfigCotizador = {
   panelMarcaModelo: 'Panel Longi 620 W',
   inversorMarcaModelo: 'Inversor Sigen On-Grid',
   inversorPotenciaMinKw: 3,
+  catalogoPaneles: DEFAULT_PANELS,
+  catalogoInversores: DEFAULT_INVERTERS,
+  panelActivoId: 'panel-longi-620-w',
+  inversorActivoId: 'inverter-sigen-on-grid-web',
 
   // Reproduce el caso patrón: 3,72 kWp -> $3.919.000 IVA incluido.
   costoMaterialesPorKwpNeto: 396_411,
@@ -258,9 +274,10 @@ export function normalizeConfig(value: unknown): ConfigCotizador {
   for (const [key, defaultValue] of Object.entries(CONFIG_DEFAULT)) {
     if (!(key in raw)) continue;
     const incoming = raw[key];
-    normalized[key] = typeof defaultValue === 'number'
-      ? (typeof incoming === 'number' ? incoming : Number.NaN)
-      : (typeof incoming === 'string' ? incoming : '');
+    if (key === 'catalogoPaneles') normalized[key] = normalizePanels(incoming);
+    else if (key === 'catalogoInversores') normalized[key] = normalizeInverters(incoming);
+    else if (typeof defaultValue === 'number') normalized[key] = typeof incoming === 'number' ? incoming : Number.NaN;
+    else if (typeof defaultValue === 'string') normalized[key] = typeof incoming === 'string' ? incoming : '';
   }
   const merged = normalized as unknown as ConfigCotizador;
   if (
@@ -273,8 +290,36 @@ export function normalizeConfig(value: unknown): ConfigCotizador {
     merged.costoMaterialesPorKwpNeto = base * materialShare;
     merged.costoServiciosPorKwpNeto = base * (1 - materialShare);
   }
+  merged.catalogoPaneles = normalizePanels(merged.catalogoPaneles);
+  merged.catalogoInversores = normalizeInverters(merged.catalogoInversores);
+  const activePanel = merged.catalogoPaneles.find((item) => item.id === merged.panelActivoId && item.estado === 'active')
+    ?? merged.catalogoPaneles.find((item) => item.estado === 'active');
+  const activeInverter = merged.catalogoInversores.find((item) => item.id === merged.inversorActivoId && item.estado === 'active')
+    ?? merged.catalogoInversores.find((item) => item.estado === 'active');
+  if (activePanel) {
+    merged.panelActivoId = activePanel.id;
+    merged.panelMarcaModelo = activePanel.nombre;
+    merged.panelPotenciaW = activePanel.potenciaW;
+  }
+  if (activeInverter) {
+    merged.inversorActivoId = activeInverter.id;
+    merged.inversorMarcaModelo = activeInverter.nombre;
+    merged.inversorPotenciaMinKw = activeInverter.potenciaAcKw;
+  }
   merged.schemaVersion = CONFIG_DEFAULT.schemaVersion;
   return merged;
+}
+
+export function getPanelActivo(config: ConfigCotizador): PanelCatalogItem {
+  return config.catalogoPaneles.find((item) => item.id === config.panelActivoId && item.estado === 'active')
+    ?? config.catalogoPaneles.find((item) => item.estado === 'active')
+    ?? DEFAULT_PANELS[0];
+}
+
+export function getInversorActivo(config: ConfigCotizador): InverterCatalogItem {
+  return config.catalogoInversores.find((item) => item.id === config.inversorActivoId && item.estado === 'active')
+    ?? config.catalogoInversores.find((item) => item.estado === 'active')
+    ?? DEFAULT_INVERTERS[0];
 }
 
 export function normalizeGeneration(value: unknown): GeneracionPorZona {
@@ -374,25 +419,3 @@ export function resetConfig(): void {
   localStorage.removeItem(BUNDLE_CACHE_KEY);
   emitConfigChanged();
 }
-
-export const EXCEL_SHEET_COVERAGE = [
-  ['MAIN', 'Entradas del caso', 'directa'], ['COT_ONGRID', 'Propuesta on-grid', 'derivada'],
-  ['PPT', 'Presentación comercial', 'referencia'], ['INPUT', 'Entradas y listas', 'directa'],
-  ['IMAGEN', 'Activos visuales', 'referencia'], ['COTBACK', 'Reglas de cubicación', 'agregada'],
-  ['COT_GRANEL', 'Venta granel', 'referencia'], ['FC Capital Propio', 'Flujo contado', 'directa'],
-  ['FC MP', 'Flujo Mercado Pago', 'directa'], ['FC SANTANDER', 'Flujo Santander', 'directa'],
-  ['FC ALZA', 'Flujo ALZA', 'directa'], ['CREDITOALZA', 'Modelo ALZA', 'directa'],
-  ['COT_OFFGRID', 'Cotización off-grid', 'referencia'], ['CUBICADOR', 'Costos agregados', 'agregada'],
-  ['FINBACK', 'Generación y ahorro', 'directa'], ['CANBACK', 'Reglas canalización', 'agregada'],
-  ['Precios Competencia', 'Benchmark', 'referencia'], ['BOMBACALOR', 'Opcional bomba calor', 'referencia'],
-  ['CARGADOREV', 'Opcional cargador EV', 'referencia'], ['AIREAC', 'Opcional climatización', 'referencia'],
-  ['GEN Zona', 'Generación regional', 'directa'], ['INV', 'Catálogo inversores', 'agregada'],
-  ['BAT', 'Catálogo baterías', 'referencia'], ['COMPBAT', 'Accesorios baterías', 'referencia'],
-  ['REG', 'Reguladores', 'referencia'], ['PAN', 'Catálogo paneles', 'directa'],
-  ['EST', 'Estructuras', 'agregada'], ['TAB', 'Tableros', 'agregada'],
-  ['CABLE', 'Cables', 'agregada'], ['CAN', 'Canalización', 'agregada'],
-  ['SERV', 'Servicios', 'agregada'], ['SERVBACK', 'Reglas servicios', 'agregada'],
-  ['COM', 'Monitoreo', 'agregada'], ['COTBACKGRANEL', 'Cubicación granel', 'referencia'],
-  ['BATGRANEL', 'Baterías granel', 'referencia'], ['COMPBATGRANEL', 'Accesorios granel', 'referencia'],
-  ['CANBACKGRANEL', 'Canalización granel', 'referencia'], ['CABLEGRANEL', 'Cables granel', 'referencia'],
-] as const;

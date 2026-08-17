@@ -10,6 +10,8 @@ import {
   CONFIG_DEFAULT,
   GENERACION_POR_ZONA,
   getFactorGeneracion,
+  getInversorActivo,
+  getPanelActivo,
   precioInyeccionKwhClp,
   precioVentaPorKwpIva,
   redondearHaciaArriba,
@@ -125,6 +127,8 @@ export function calcularCotizacion(params: {
   const fases: Fases = params.fases ?? 1;
   const genZona = params.generacionPorZona ?? GENERACION_POR_ZONA;
   const precioIny = precioInyeccionKwhClp(cfg);
+  const panelActivo = getPanelActivo(cfg);
+  const inversorActivo = getInversorActivo(cfg);
 
   // 1. Calcular consumo mensual en kWh (aplica proyección del Excel: INPUT!B18)
   const consumoKwhMensual =
@@ -146,7 +150,7 @@ export function calcularCotizacion(params: {
   // 2. Dimensionar sistema
   // El "factor de sobredimensionamiento" se DERIVA de las tarifas y el límite
   // de autoconsumo (ver getFactorGeneracion en config.ts). No es una constante.
-  const panelKwp = cfg.panelPotenciaW / 1000;
+  const panelKwp = panelActivo.potenciaW / 1000;
   const genAnual = genZona[region].reduce((a, b) => a + b, 0); // kWh/kWp/año
   const factorGen = getFactorGeneracion(cfg);
 
@@ -178,10 +182,10 @@ export function calcularCotizacion(params: {
   const sistema: SistemaDimensionado = {
     capacidadKwp: Math.round(capacidadKwp * 100) / 100,
     numeroPaneles,
-    potenciaPanelW: cfg.panelPotenciaW,
-    marcaPanel: cfg.panelMarcaModelo,
-    marcaInversor: cfg.inversorMarcaModelo,
-    potenciaInversorKw: Math.max(cfg.inversorPotenciaMinKw, Math.ceil(capacidadKwp)),
+    potenciaPanelW: panelActivo.potenciaW,
+    marcaPanel: panelActivo.nombre,
+    marcaInversor: inversorActivo.nombre,
+    potenciaInversorKw: Math.max(inversorActivo.potenciaAcKw, Math.ceil(capacidadKwp)),
     generacionAnualKwh: Math.round(generacionAnualKwh),
     generacionMensualPromKwh: Math.round(generacionMensualPromKwh),
     autoconsumoAnualKwh: Math.round(autoconsumoAnualKwh),
@@ -206,11 +210,15 @@ export function calcularCotizacion(params: {
   };
 
   // 4. Precio del proyecto
-  const precioPorKwp = precioVentaPorKwpIva(cfg);
+  const precioBaseProyecto = capacidadKwp * precioVentaPorKwpIva(cfg);
+  const ajusteEquiposNeto = numeroPaneles * (panelActivo.precioVentaClp - 101_000)
+    + (inversorActivo.precioVentaClp - 518_000);
+  const precioSinRedondeo = Math.max(0, precioBaseProyecto + ajusteEquiposNeto * cfg.ivaVenta);
   const precioProyectoClp = redondearHaciaArriba(
-    capacidadKwp * precioPorKwp,
+    precioSinRedondeo,
     cfg.redondeoPrecioClp,
   );
+  const precioPorKwp = precioProyectoClp / capacidadKwp;
   const paybackAnios = precioProyectoClp / ahorroTotalAnual;
   const paybackMeses = Math.ceil(paybackAnios * 12);
 
