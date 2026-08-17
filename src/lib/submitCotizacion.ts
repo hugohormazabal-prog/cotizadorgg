@@ -1,7 +1,7 @@
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import { CotizadorState } from './types';
 import { calcularCotizacion } from './estimaciones';
-import { getConfig, fasesPorTipoPropiedad } from './config';
+import { getActiveConfigBundle, fasesPorTipoPropiedad } from './config';
 import { generarLeadOdoo } from './lead';
 import type { Region } from './config';
 
@@ -23,13 +23,15 @@ export interface SubmitResult {
  * pueda probarse de inmediato.
  */
 export async function submitCotizacion(data: CotizadorState): Promise<SubmitResult> {
+  const activeBundle = getActiveConfigBundle();
   const region = data.ubicacion.region as Region | '';
   const estimacion = region
     ? calcularCotizacion({
         ...data.consumo,
         region,
         fases: fasesPorTipoPropiedad(data.propiedad.tipoPropiedad),
-        config: getConfig(),
+        config: activeBundle.config,
+        generacionPorZona: activeBundle.genZona,
       })
     : null;
 
@@ -55,6 +57,14 @@ export async function submitCotizacion(data: CotizadorState): Promise<SubmitResu
     estimacion_ahorro_mensual_clp: estimacion?.ahorro.ahorroMensualProm ?? null,
     estimacion_precio_proyecto_clp: estimacion?.precioProyectoClp ?? null,
     estimacion_payback_anios: estimacion?.paybackAnios ?? null,
+    config_version: activeBundle.version || null,
+    config_snapshot: {
+      schemaVersion: activeBundle.config.schemaVersion,
+      version: activeBundle.version,
+      status: activeBundle.status,
+      config: activeBundle.config,
+      generacionRegion: region ? activeBundle.genZona[region] : null,
+    },
     acepta_terminos: data.resumen.aceptaTerminos,
   };
 

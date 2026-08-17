@@ -10,7 +10,7 @@ import type { Region } from '@/lib/config';
 
 export default function CotizacionPage() {
   const data = useCotizadorStore((state) => state.data);
-  const { config, version } = useConfig();
+  const { config, genZona, version } = useConfig();
   const [mounted, setMounted] = useState(false);
   const previewViewportRef = useRef<HTMLDivElement>(null);
   const previewContentRef = useRef<HTMLDivElement>(null);
@@ -26,9 +26,10 @@ export default function CotizacionPage() {
       region: data.ubicacion.region as Region,
       fases: fasesPorTipoPropiedad(data.propiedad.tipoPropiedad),
       config,
+      generacionPorZona: genZona,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted, data.consumo, data.ubicacion.region, data.propiedad.tipoPropiedad, config, version]);
+  }, [mounted, data.consumo, data.ubicacion.region, data.propiedad.tipoPropiedad, config, genZona, version]);
 
   useEffect(() => {
     if (!quote) return;

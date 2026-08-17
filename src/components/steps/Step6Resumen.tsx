@@ -25,7 +25,7 @@ export function Step6Resumen() {
   const leadEnviado = useCotizadorStore((s) => s.leadEnviado);
   const setLeadEnviado = useCotizadorStore((s) => s.setLeadEnviado);
   const data = useCotizadorStore((s) => s.data);
-  const { config, version } = useConfig();
+  const { config, genZona, version } = useConfig();
   const detallada = requiereCotizacionDetallada(data.propiedad.tipoPropiedad);
   const [submitting, setSubmitting] = useState(false);
   const [opcionSel, setOpcionSel] = useState<string>('transferencia');
@@ -37,9 +37,10 @@ export function Step6Resumen() {
       region: ubicacion.region as Region,
       fases: fasesPorTipoPropiedad(data.propiedad.tipoPropiedad),
       config,
+      generacionPorZona: genZona,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [consumo, ubicacion.region, data.propiedad.tipoPropiedad, config, version]);
+  }, [consumo, ubicacion.region, data.propiedad.tipoPropiedad, config, genZona, version]);
 
   if (status === 'success') {
     return <StepShell title=""><SuccessAnimation /></StepShell>;
@@ -129,6 +130,15 @@ export function Step6Resumen() {
               <span className="text-slate-700">
                 Ahorro anual: <span className="font-semibold text-amber-800">{formatCLP(cotizacion.ahorro.ahorroTotalAnual)}</span>
               </span>
+            </div>
+
+            <div className="grid gap-2 text-xs text-slate-700 sm:grid-cols-2">
+              <div className="rounded-lg border border-white/40 bg-white/35 px-3 py-2">
+                <span className="font-semibold">Equipo:</span> {cotizacion.sistema.marcaPanel} · {cotizacion.sistema.marcaInversor} {cotizacion.sistema.potenciaInversorKw} kW
+              </div>
+              <div className="rounded-lg border border-white/40 bg-white/35 px-3 py-2">
+                <span className="font-semibold">Impacto:</span> {cotizacion.sistema.mitigacionCo2TonAnual.toLocaleString('es-CL')} t CO₂/año · {cotizacion.garantias.map((item) => `${item.label} ${item.valor}`).join(' · ')}
+              </div>
             </div>
 
             {/* ── Flujo residencial: oferta comercial completa ─────────── */}

@@ -1,12 +1,6 @@
-// ============================================================================
-// CONFIGURACIÓN CENTRAL — extraída del Excel "Cotizador Residencial.xlsm"
-// Todas las variables editables están aquí y se exponen en /mantenedor.
-// ============================================================================
+// Configuración auditable del cotizador residencial.
+// Defaults y referencias revisados contra "Cotizador Residencial.xlsm".
 
-// ---------------------------------------------------------------------------
-// Tabla de generación mensual por región (kWh por kWp instalado por mes)
-// Fuente: hoja "GEN Zona" del Excel
-// ---------------------------------------------------------------------------
 export type Region =
   | 'De Arica'
   | 'De Tarapacá'
@@ -23,10 +17,17 @@ export type Region =
   | 'De los Lagos'
   | 'De Aysén';
 
-/** kWh generados por kWp instalado, por mes, por región */
 export type GeneracionMensual = [number, number, number, number, number, number, number, number, number, number, number, number];
+export type GeneracionPorZona = Record<Region, GeneracionMensual>;
 
-export const GENERACION_POR_ZONA: Record<Region, GeneracionMensual> = {
+export const REGIONES: Region[] = [
+  'De Arica', 'De Tarapacá', 'De Antofagasta', 'De Coquimbo',
+  'De Valparaíso', 'Metropolitana', "De O'Higgins", 'Del Maule',
+  'Del Ñuble', 'Del Biobío', 'De la Araucanía', 'De los Ríos',
+  'De los Lagos', 'De Aysén',
+];
+
+export const GENERACION_POR_ZONA: GeneracionPorZona = {
   'De Arica':        [131,124,147,136,127,107,107,111,119,136,130,130],
   'De Tarapacá':     [142,132,155,145,139,127,134,140,146,151,142,141],
   'De Antofagasta':  [136,130,145,130,118,109,111,114,117,128,130,136],
@@ -43,232 +44,355 @@ export const GENERACION_POR_ZONA: Record<Region, GeneracionMensual> = {
   'De Aysén':        [138,110, 99, 79, 67, 62, 65, 76, 91,115,126,140],
 };
 
-/** Total anual kWh/kWp por región */
-export function generacionAnualPorKwp(region: Region): number {
-  return GENERACION_POR_ZONA[region].reduce((a, b) => a + b, 0);
-}
-
-// ---------------------------------------------------------------------------
-// Variables financieras y de cálculo
-// ---------------------------------------------------------------------------
 export interface ConfigCotizador {
-  // Precios de energía
-  precioKwhClp: number;           // $/kWh tarifa consumo (MAIN!C71). Ej: 250
-  // Inyección neta = precio de nudo × IVA. Excel MAIN!C72 = 105.7033 * 1.19
-  precioNudoInyeccionClp: number; // $/kWh precio de nudo inyección (sin IVA). Ej: 105.7033
-  ivaInyeccion: number;           // Factor IVA aplicado a la inyección. Ej: 1.19
+  schemaVersion: number;
 
-  // Panel estándar
-  panelPotenciaW: number;         // Potencia unitaria del panel en W (PAN!G). Ej: 620
-  panelMarcaModelo: string;       // Nombre para mostrar. Ej: "Longi 620 W"
+  // MAIN / INPUT / FINBACK
+  precioKwhClp: number;
+  precioNudoInyeccionClp: number;
+  ivaInyeccion: number;
+  limiteAutoconsumo: number;
+  proyeccionConsumo: number;
+  maxPanelesMonofasico: number;
+  minPaneles: number;
 
-  // Dimensionamiento
-  limiteAutoconsumo: number;      // % del consumo anual cubierto por autoconsumo (INPUT!B19). Ej: 0.50
-  proyeccionConsumo: number;      // Proyección/multiplicador del consumo (INPUT!B18). Ej: 1
-  // NOTA: el "factor de sobredimensionamiento" NO es una constante en el Excel:
-  // se deriva de límite + precioConsumo*(1-límite)/precioInyección  (ver getFactorGeneracion).
-  maxPanelesMonofasico: number;   // Tope de paneles para instalación monofásica (COTBACK!D53). Ej: 20
+  // PAN / INV
+  panelPotenciaW: number;
+  panelMarcaModelo: string;
+  inversorMarcaModelo: string;
+  inversorPotenciaMinKw: number;
 
-  // Precio por kWp (IVA incluido)
-  costoPorKwpClpIva: number;      // $/kWp precio venta IVA inc. Ej: 1_053_495
+  // CUBICADOR / COTBACK. Precio = costos / (1 - margen) * IVA.
+  costoMaterialesPorKwpNeto: number;
+  costoServiciosPorKwpNeto: number;
+  margen: number;
+  ivaVenta: number;
+  redondeoPrecioClp: number;
 
-  // Margen
-  margen: number;                 // Margen directo bruto. Ej: 0.2111
+  // Hojas FC
+  ipcAnual: number;
+  degradacionPaneles: number;
+  periodoEvaluacionAnios: number;
+  tasaDescuentoAnual: number;
+  anioReposicion1: number;
+  inversionRespuesto10: number;
+  anioReposicion2: number;
+  inversionRespuesto22: number;
 
-  // Ajustes anuales para flujo de caja
-  ipcAnual: number;               // Ajuste IPC/CPI anual. Ej: 1.03
-  degradacionPaneles: number;     // Degradación anual paneles. Ej: 0.005
+  // FC MP / FC SANTANDER
+  factorMP: number;
+  cuotasMP: number;
+  factorSantander: number;
+  cuotasSantander: number;
 
-  // Financiamiento — Mercado Pago 12 cuotas sin interés
-  factorMP: number;               // Recargo total MP (precio * factorMP = total cobrado). Ej: 1.1832
-  cuotasMP: number;               // Número de cuotas. Ej: 12
+  // CREDITOALZA. La cuota se deriva de estas variables mediante PMT.
+  alzaTasaAnual: number;
+  alzaMesesGracia: number;
+  cuotasALZA: number;
+  alzaFinancialFee: number;
+  alzaGarantiaCapital: number;
+  alzaGarantiaGastos: number;
+  alzaGastosUf: number;
+  alzaGastoFijoClp: number;
+  valorUfClp: number;
 
-  // Financiamiento — Santander cuotas sin interés
-  factorSantander: number;        // Mismo recargo que MP (misma plataforma). Ej: 1.1832
-  cuotasSantander: number;        // Número de cuotas. Ej: 48
-
-  // Financiamiento — Crédito largo plazo (ALZA)
-  // factorCuotaMensualALZA = cuota_mensual / precio_proyecto
-  // Derivado de PMT(0.531674%, 300, capitalALZA*(1+0.531674%)^3)
-  // donde capitalALZA = precioProyecto * 1.7384 (incluye fee 23.8% + garantía bancaria + gastos)
-  // Valor verificado contra Excel: $3,919,001 → cuota $46,223 (factor = 0.011804)
-  factorCuotaMensualALZA: number; // cuota_mensual / precio_proyecto. Ej: 0.011804
-  cuotasALZA: number;             // Número de cuotas totales. Ej: 300
-
-  // Garantías
-  garantiaPaneles: number;        // Años garantía paneles. Ej: 12
-  garantiaInversor: number;       // Años garantía inversor. Ej: 10
-  garantiaInstalacion: number;    // Años garantía instalación. Ej: 1
-
-  // Descuento transferencia vs otros métodos
-  descuentoTransferencia: number; // % que se muestra. Ej: 0.155
-
-  // Inversión de repuesto (mantenimiento proyectado)
-  inversionRespuesto10: number;   // Repuesto año 10 CLP. Ej: 518_000
-  inversionRespuesto22: number;   // Repuesto año 22 CLP. Ej: 518_000
-
-  // Ambiental
-  co2FactorKgPerKwh: number;      // Mitigación de CO2 por kWh (FINBACK!B49). Ej: 0.5
+  // Garantías / impacto
+  garantiaPaneles: number;
+  garantiaInversor: number;
+  garantiaInstalacion: number;
+  co2FactorKgPerKwh: number;
 }
 
-// ---------------------------------------------------------------------------
-// Valores por defecto (exactamente los del Excel con la muestra)
-// ---------------------------------------------------------------------------
 export const CONFIG_DEFAULT: ConfigCotizador = {
+  schemaVersion: 2,
   precioKwhClp: 250,
   precioNudoInyeccionClp: 105.7033,
   ivaInyeccion: 1.19,
-
-  panelPotenciaW: 620,
-  panelMarcaModelo: 'Longi 620 W',
-
-  limiteAutoconsumo: 0.50,
+  limiteAutoconsumo: 0.5,
   proyeccionConsumo: 1,
   maxPanelesMonofasico: 20,
+  minPaneles: 1,
 
-  costoPorKwpClpIva: 1_053_495,
+  panelPotenciaW: 620,
+  panelMarcaModelo: 'Panel Longi 620 W',
+  inversorMarcaModelo: 'Inversor Sigen On-Grid',
+  inversorPotenciaMinKw: 3,
+
+  // Reproduce el caso patrón: 3,72 kWp -> $3.919.000 IVA incluido.
+  costoMaterialesPorKwpNeto: 396_411,
+  costoServiciosPorKwpNeto: 301_993.9652118911,
   margen: 0.2111,
+  ivaVenta: 1.19,
+  redondeoPrecioClp: 1_000,
 
   ipcAnual: 1.03,
   degradacionPaneles: 0.005,
+  periodoEvaluacionAnios: 25,
+  tasaDescuentoAnual: 0,
+  anioReposicion1: 10,
+  inversionRespuesto10: 518_000,
+  anioReposicion2: 22,
+  inversionRespuesto22: 518_000,
 
   factorMP: 1.1832,
   cuotasMP: 12,
-
   factorSantander: 1.1832,
   cuotasSantander: 48,
 
-  factorCuotaMensualALZA: 0.011804,
+  alzaTasaAnual: 0.0657,
+  alzaMesesGracia: 3,
   cuotasALZA: 300,
+  alzaFinancialFee: 0.238,
+  alzaGarantiaCapital: 0.119,
+  alzaGarantiaGastos: 0.1,
+  alzaGastosUf: 7.47,
+  alzaGastoFijoClp: 350_000,
+  valorUfClp: 40_173.46,
 
   garantiaPaneles: 12,
   garantiaInversor: 10,
   garantiaInstalacion: 1,
-
-  descuentoTransferencia: 0.155,
-
-  inversionRespuesto10: 518_000,
-  inversionRespuesto22: 518_000,
-
   co2FactorKgPerKwh: 0.5,
 };
 
-// ---------------------------------------------------------------------------
-// Precio de inyección efectivo ($/kWh IVA inc.) — MAIN!C72 = 105.7033 * 1.19
-// ---------------------------------------------------------------------------
+export interface ConfigBundle {
+  config: ConfigCotizador;
+  genZona: GeneracionPorZona;
+  version: number;
+  status: 'local' | 'draft' | 'published' | 'archived';
+  updatedAt?: string;
+  comment?: string;
+}
+
 export function precioInyeccionKwhClp(cfg: ConfigCotizador): number {
   return cfg.precioNudoInyeccionClp * cfg.ivaInyeccion;
 }
 
-// ---------------------------------------------------------------------------
-// Factor de sobredimensionamiento DERIVADO (no es constante en el Excel).
-// FINBACK: kWp_ideal = (autoconsumo_kWh + inyeccion_ideal_kWh) / genAnual
-//   autoconsumo_kWh    = consumo_anual * límite
-//   inyeccion_ideal_kWh= consumo_anual * precioConsumo * (1-límite) / precioInyección
-// ⇒ factor = límite + precioConsumo*(1-límite)/precioInyección
-// Con los defaults: 0.5 + 250*0.5/125.787 = 1.4937
-// ---------------------------------------------------------------------------
 export function getFactorGeneracion(cfg: ConfigCotizador): number {
-  const pIny = precioInyeccionKwhClp(cfg);
-  return cfg.limiteAutoconsumo + (cfg.precioKwhClp * (1 - cfg.limiteAutoconsumo)) / pIny;
+  const inyeccion = precioInyeccionKwhClp(cfg);
+  if (inyeccion <= 0) return 0;
+  return cfg.limiteAutoconsumo
+    + (cfg.precioKwhClp * (1 - cfg.limiteAutoconsumo)) / inyeccion;
 }
 
-// ---------------------------------------------------------------------------
-// Número de fases según tipo de propiedad.
-// Casa / casa en construcción / departamento → monofásico (1) salvo alto consumo.
-// Empresa → trifásico (3), sin el tope de paneles monofásico.
-// ---------------------------------------------------------------------------
+export function costoBasePorKwpNeto(cfg: ConfigCotizador): number {
+  return cfg.costoMaterialesPorKwpNeto + cfg.costoServiciosPorKwpNeto;
+}
+
+export function precioVentaPorKwpIva(cfg: ConfigCotizador): number {
+  if (cfg.margen >= 1) return Number.POSITIVE_INFINITY;
+  return (costoBasePorKwpNeto(cfg) / (1 - cfg.margen)) * cfg.ivaVenta;
+}
+
+export function redondearHaciaArriba(valor: number, multiplo: number): number {
+  if (!Number.isFinite(valor)) return valor;
+  return multiplo > 0 ? Math.ceil(valor / multiplo) * multiplo : Math.round(valor);
+}
+
+export interface CalculoAlza {
+  valorPlantaNeto: number;
+  gastosFinancieros: number;
+  garantia: number;
+  totalFinanciado: number;
+  tasaMensual: number;
+  cuotaMensual: number;
+  cuotaUf: number;
+}
+
+/** Réplica de CREDITOALZA!C13:C29 para que plazo/tasa/UF se mantengan coherentes. */
+export function calcularCreditoAlza(precioProyectoIva: number, cfg: ConfigCotizador): CalculoAlza {
+  const valorPlantaNeto = precioProyectoIva / cfg.ivaVenta;
+  const gastosFinancieros = (cfg.alzaGastosUf * cfg.valorUfClp + cfg.alzaGastoFijoClp) * cfg.ivaVenta;
+  const fee = cfg.alzaFinancialFee;
+  const garantiaNumerador =
+    cfg.alzaGarantiaCapital * valorPlantaNeto
+    + cfg.alzaGarantiaGastos * gastosFinancieros
+    + cfg.alzaGarantiaCapital * fee * valorPlantaNeto
+    + cfg.alzaGarantiaGastos * gastosFinancieros * fee;
+  const garantiaDenominador = 1 - cfg.alzaGarantiaCapital - cfg.alzaGarantiaCapital * fee;
+  const garantia = garantiaDenominador > 0 ? garantiaNumerador / garantiaDenominador : Number.POSITIVE_INFINITY;
+  const ivaProyecto = (valorPlantaNeto + garantia) * (cfg.ivaVenta - 1);
+  const baseFinanciada = valorPlantaNeto + garantia + gastosFinancieros + ivaProyecto;
+  const totalFinanciado = baseFinanciada * (1 + fee);
+  const tasaMensual = Math.pow(1 + cfg.alzaTasaAnual, 1 / 12) - 1;
+  const capitalConGracia = totalFinanciado * Math.pow(1 + tasaMensual, cfg.alzaMesesGracia);
+  const cuotaMensual = tasaMensual === 0
+    ? capitalConGracia / cfg.cuotasALZA
+    : (tasaMensual * capitalConGracia) / (1 - Math.pow(1 + tasaMensual, -cfg.cuotasALZA));
+  return {
+    valorPlantaNeto, gastosFinancieros, garantia, totalFinanciado, tasaMensual,
+    cuotaMensual,
+    cuotaUf: cuotaMensual / cfg.valorUfClp,
+  };
+}
+
+export function generacionAnualPorKwp(region: Region, genZona = GENERACION_POR_ZONA): number {
+  return genZona[region].reduce((total, month) => total + month, 0);
+}
+
 export function fasesPorTipoPropiedad(tipo: string | undefined | null): 1 | 3 {
   return tipo === 'empresa' ? 3 : 1;
 }
 
-// ---------------------------------------------------------------------------
-// Diferenciación de flujo por tipo de propiedad.
-// Empresa y departamento requieren una COTIZACIÓN A DETALLE hecha por un
-// especialista (no es comparable al mundo residencial): en el cotizador web
-// solo se les muestra el ejercicio de AHORRO estimado y se capturan como lead
-// — sin precios, financiamiento ni oferta.
-// Casa y casa en construcción sí ven la propuesta comercial completa.
-// ---------------------------------------------------------------------------
 export function requiereCotizacionDetallada(tipo: string | undefined | null): boolean {
   return tipo === 'empresa' || tipo === 'departamento';
 }
 
-/** true si al usuario se le pueden mostrar precios/financiamiento/oferta. */
 export function muestraPrecios(tipo: string | undefined | null): boolean {
   return !requiereCotizacionDetallada(tipo);
 }
 
-// ---------------------------------------------------------------------------
-// Config activa: lee sobreescrituras del mantenedor (localStorage en browser)
-// ---------------------------------------------------------------------------
-const STORAGE_KEY = 'gg-config-mantenedor';
+const STORAGE_KEY = 'gg-config-mantenedor-v2';
+const LEGACY_STORAGE_KEY = 'gg-config-mantenedor';
 const GEN_ZONA_KEY = 'gg-gen-zona';
-/** Evento que dispara el mantenedor al guardar; el cotizador lo escucha para
- *  recalcular en vivo sin necesidad de refrescar la página (bug "pegado"). */
+const BUNDLE_CACHE_KEY = 'gg-config-published-cache';
 export const CONFIG_CHANGED_EVENT = 'gg-config-changed';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export function normalizeConfig(value: unknown): ConfigCotizador {
+  const raw = isRecord(value) ? value : {};
+  const normalized: Record<string, unknown> = { ...CONFIG_DEFAULT };
+  for (const [key, defaultValue] of Object.entries(CONFIG_DEFAULT)) {
+    if (!(key in raw)) continue;
+    const incoming = raw[key];
+    normalized[key] = typeof defaultValue === 'number'
+      ? (typeof incoming === 'number' ? incoming : Number.NaN)
+      : (typeof incoming === 'string' ? incoming : '');
+  }
+  const merged = normalized as unknown as ConfigCotizador;
+  if (
+    typeof raw.costoPorKwpClpIva === 'number'
+    && raw.costoMaterialesPorKwpNeto == null
+    && raw.costoServiciosPorKwpNeto == null
+  ) {
+    const base = raw.costoPorKwpClpIva / merged.ivaVenta * (1 - merged.margen);
+    const materialShare = CONFIG_DEFAULT.costoMaterialesPorKwpNeto / costoBasePorKwpNeto(CONFIG_DEFAULT);
+    merged.costoMaterialesPorKwpNeto = base * materialShare;
+    merged.costoServiciosPorKwpNeto = base * (1 - materialShare);
+  }
+  merged.schemaVersion = CONFIG_DEFAULT.schemaVersion;
+  return merged;
+}
+
+export function normalizeGeneration(value: unknown): GeneracionPorZona {
+  if (!isRecord(value)) return GENERACION_POR_ZONA;
+  const result = { ...GENERACION_POR_ZONA };
+  for (const region of REGIONES) {
+    const row = value[region];
+    if (Array.isArray(row) && row.length === 12 && row.every((item) => typeof item === 'number' && Number.isFinite(item))) {
+      result[region] = [...row] as GeneracionMensual;
+    }
+  }
+  return result;
+}
+
 function emitConfigChanged(): void {
-  if (typeof window === 'undefined') return;
-  window.dispatchEvent(new Event(CONFIG_CHANGED_EVENT));
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(CONFIG_CHANGED_EVENT));
 }
 
 export function getConfig(): ConfigCotizador {
   if (typeof window === 'undefined') return CONFIG_DEFAULT;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return CONFIG_DEFAULT;
-    return { ...CONFIG_DEFAULT, ...JSON.parse(raw) };
+    const bundle = localStorage.getItem(BUNDLE_CACHE_KEY);
+    if (bundle) return normalizeConfig(JSON.parse(bundle).config);
+    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY);
+    return raw ? normalizeConfig(JSON.parse(raw)) : CONFIG_DEFAULT;
   } catch {
     return CONFIG_DEFAULT;
   }
 }
 
-/** Retorna la tabla de generación por zona, considerando overrides del mantenedor */
-export function getGeneracionPorZona(): Record<Region, GeneracionMensual> {
+export function getGeneracionPorZona(): GeneracionPorZona {
   if (typeof window === 'undefined') return GENERACION_POR_ZONA;
   try {
+    const bundle = localStorage.getItem(BUNDLE_CACHE_KEY);
+    if (bundle) return normalizeGeneration(JSON.parse(bundle).genZona);
     const raw = localStorage.getItem(GEN_ZONA_KEY);
-    if (!raw) return GENERACION_POR_ZONA;
-    return { ...GENERACION_POR_ZONA, ...JSON.parse(raw) };
+    return raw ? normalizeGeneration(JSON.parse(raw)) : GENERACION_POR_ZONA;
   } catch {
     return GENERACION_POR_ZONA;
   }
 }
 
-export function saveConfig(patch: Partial<ConfigCotizador>): void {
+/** Versión y valores exactos usados por el navegador al generar una cotización. */
+export function getActiveConfigBundle(): ConfigBundle {
+  if (typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem(BUNDLE_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached) as Partial<ConfigBundle>;
+        return {
+          config: normalizeConfig(parsed.config),
+          genZona: normalizeGeneration(parsed.genZona),
+          version: Number(parsed.version ?? 0),
+          status: parsed.status === 'published' ? 'published' : 'local',
+          updatedAt: parsed.updatedAt,
+          comment: parsed.comment,
+        };
+      }
+    } catch {
+      // Continúa con la configuración local segura.
+    }
+  }
+  return {
+    config: getConfig(),
+    genZona: getGeneracionPorZona(),
+    version: 0,
+    status: 'local',
+  };
+}
+
+export function cachePublishedBundle(bundle: ConfigBundle): void {
   if (typeof window === 'undefined') return;
-  const current = getConfig();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, ...patch }));
+  localStorage.setItem(BUNDLE_CACHE_KEY, JSON.stringify(bundle));
   emitConfigChanged();
 }
 
-export function saveGenZona(genZona: Record<Region, GeneracionMensual>): void {
+/** Fallback local para desarrollo o si aún no se configura Supabase en servidor. */
+export function saveConfig(patch: Partial<ConfigCotizador>): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(GEN_ZONA_KEY, JSON.stringify(genZona));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeConfig({ ...getConfig(), ...patch })));
+  localStorage.removeItem(BUNDLE_CACHE_KEY);
+  emitConfigChanged();
+}
+
+export function saveGenZona(genZona: GeneracionPorZona): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(GEN_ZONA_KEY, JSON.stringify(normalizeGeneration(genZona)));
+  localStorage.removeItem(BUNDLE_CACHE_KEY);
   emitConfigChanged();
 }
 
 export function resetConfig(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(LEGACY_STORAGE_KEY);
   localStorage.removeItem(GEN_ZONA_KEY);
+  localStorage.removeItem(BUNDLE_CACHE_KEY);
   emitConfigChanged();
 }
 
-export const REGIONES: Region[] = [
-  'De Arica',
-  'De Tarapacá',
-  'De Antofagasta',
-  'De Coquimbo',
-  'De Valparaíso',
-  'Metropolitana',
-  "De O'Higgins",
-  'Del Maule',
-  'Del Ñuble',
-  'Del Biobío',
-  'De la Araucanía',
-  'De los Ríos',
-  'De los Lagos',
-  'De Aysén',
-];
+export const EXCEL_SHEET_COVERAGE = [
+  ['MAIN', 'Entradas del caso', 'directa'], ['COT_ONGRID', 'Propuesta on-grid', 'derivada'],
+  ['PPT', 'Documento comercial protegido', 'protegida'], ['INPUT', 'Entradas y listas', 'directa'],
+  ['IMAGEN', 'Activos visuales', 'protegida'], ['COTBACK', 'Reglas de cubicación', 'agregada'],
+  ['COT_GRANEL', 'Venta granel', 'fuera_flujo'], ['FC Capital Propio', 'Flujo contado', 'directa'],
+  ['FC MP', 'Flujo Mercado Pago', 'directa'], ['FC SANTANDER', 'Flujo Santander', 'directa'],
+  ['FC ALZA', 'Flujo ALZA', 'directa'], ['CREDITOALZA', 'Modelo ALZA', 'directa'],
+  ['COT_OFFGRID', 'Cotización off-grid', 'fuera_flujo'], ['CUBICADOR', 'Costos agregados', 'agregada'],
+  ['FINBACK', 'Generación y ahorro', 'directa'], ['CANBACK', 'Reglas canalización', 'agregada'],
+  ['Precios Competencia', 'Benchmark', 'referencia'], ['BOMBACALOR', 'Opcional bomba calor', 'referencia'],
+  ['CARGADOREV', 'Opcional cargador EV', 'referencia'], ['AIREAC', 'Opcional climatización', 'referencia'],
+  ['GEN Zona', 'Generación regional', 'directa'], ['INV', 'Catálogo inversores', 'agregada'],
+  ['BAT', 'Catálogo baterías', 'referencia'], ['COMPBAT', 'Accesorios baterías', 'referencia'],
+  ['REG', 'Reguladores', 'fuera_flujo'], ['PAN', 'Catálogo paneles', 'directa'],
+  ['EST', 'Estructuras', 'agregada'], ['TAB', 'Tableros', 'agregada'],
+  ['CABLE', 'Cables', 'agregada'], ['CAN', 'Canalización', 'agregada'],
+  ['SERV', 'Servicios', 'agregada'], ['SERVBACK', 'Reglas servicios', 'agregada'],
+  ['COM', 'Monitoreo', 'agregada'], ['COTBACKGRANEL', 'Cubicación granel', 'fuera_flujo'],
+  ['BATGRANEL', 'Baterías granel', 'fuera_flujo'], ['COMPBATGRANEL', 'Accesorios granel', 'fuera_flujo'],
+  ['CANBACKGRANEL', 'Canalización granel', 'fuera_flujo'], ['CABLEGRANEL', 'Cables granel', 'fuera_flujo'],
+] as const;

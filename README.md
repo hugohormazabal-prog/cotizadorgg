@@ -25,12 +25,14 @@ Copia `.env.example` a `.env.local` y completa:
 | Variable | Para qué sirve |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Guardar las solicitudes de cotización en Supabase (tabla `cotizaciones`) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Persistencia central y versionada del mantenedor; solo servidor |
+| `MANTENEDOR_ACCESS_KEY` | Clave opcional y temporal para `/mantenedor` hasta integrar autenticación |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Autocompletado de direcciones (Places) y mapa interactivo con pin arrastrable en la Etapa 4 |
 
 ### Supabase
 
 1. Crea un proyecto en [supabase.com](https://supabase.com).
-2. Aplica el esquema de `supabase/migrations/0001_init.sql` (pégalo en el SQL
+2. Aplica en orden las migraciones de `supabase/migrations` (pégalas en el SQL
    Editor del dashboard, o usa `supabase db push` si trabajas con la CLI).
 3. Copia la URL y la `anon key` desde *Project Settings → API* a `.env.local`.
 
@@ -61,20 +63,33 @@ src/
   lib/
     store.ts            # Estado global (Zustand) + persistencia en localStorage
     types.ts            # Tipos del modelo de datos del cotizador
-    estimaciones.ts     # Lógica de estimación de ahorro/capacidad (PLACEHOLDER)
+    config.ts           # Variables auditadas del Excel y valores publicados
+    configValidation.ts # Validación numérica y reglas cruzadas
+    estimaciones.ts     # Motor residencial, ahorro, precio, proyección y financiamiento
     submitCotizacion.ts # Envío del formulario a Supabase (o modo demo)
     supabase.ts         # Cliente de Supabase
 supabase/
-  migrations/0001_init.sql  # Esquema SQL de la tabla `cotizaciones`
+  migrations/0001_init.sql  # Esquema SQL de solicitudes
+  migrations/0003_cotizador_config_versions.sql # Borradores, publicación e historial
 ```
+
+## Mantenedor de cálculo
+
+Abre `/mantenedor`. Sin credenciales de servidor funciona en modo local de
+desarrollo; con Supabase configurado guarda borradores y publicaciones globales,
+mantiene historial, valida los valores y bloquea conflictos entre sesiones. Cada
+solicitud registra la versión y una instantánea de los parámetros usados.
+
+La configuración se construyó mediante una auditoría de las 38 hojas de
+`Cotizador Residencial.xlsm`. La vista “Cobertura del Excel” identifica qué hojas
+alimentan el cotizador residencial, cuáles se consolidan en costos y cuáles
+pertenecen a flujos granel/off-grid. La propuesta comercial derivada de la PPT se
+considera un artefacto protegido y no se modifica desde el mantenedor.
 
 ## TODOs / pendientes a definir contigo (Hugo)
 
 Estos puntos están marcados con comentarios `TODO(Hugo)` en el código:
 
-- **`src/lib/estimaciones.ts`** — las fórmulas de conversión CLP↔kWh, tamaño
-  de sistema sugerido, ahorro estimado e inversión referencial son
-  placeholders ilustrativos. Reemplazar con la lógica real de negocio.
 - **`src/lib/types.ts`** — enums de `comoNosEncontraste`, `tipoPropiedad`,
   `ubicacionPaneles` y `tipoTecho`: confirmar que coincidan con tus catálogos
   finales (o ajustarlos si cambian).

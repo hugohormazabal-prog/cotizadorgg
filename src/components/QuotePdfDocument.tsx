@@ -11,7 +11,7 @@ type QuotePdfDocumentProps = {
 };
 
 const COMPANY = {
-  phone: '+56 9 4013 4034',
+  phone: '+569 7564 4930',
   email: 'cmartinez@ggelectrics.cl',
   address: 'Laguna Sur 9600 B432, Pudahuel, Santiago',
 };
@@ -36,8 +36,19 @@ function quoteNumber(customer: CotizadorState, quote: CotizacionCompleta) {
   return String(10000 + (Math.abs(hash) % 90000));
 }
 
-function signedCurrency(value: number) {
-  return `${value >= 0 ? '+' : '-'}${formatCLP(Math.abs(value))}`;
+function differenceCurrency(value: number) {
+  return `${value < 0 ? '-' : ''}${formatCLP(Math.abs(value))}`;
+}
+
+function formatUf(value: number | undefined) {
+  return `${(value ?? 0).toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} UF`;
+}
+
+function inverterCapacity(capacityKwp: number) {
+  const commercialSizes = [3, 5, 6, 8, 10, 12, 15, 20];
+  return commercialSizes.reduce((closest, size) => (
+    Math.abs(size - capacityKwp) < Math.abs(closest - capacityKwp) ? size : closest
+  ));
 }
 
 function short(value: string, maximum = 46) {
@@ -116,7 +127,7 @@ function PageOne({ quote, customer }: QuotePdfDocumentProps) {
     <section className={styles.page} aria-label="Resumen de la cotización">
       <header className={styles.pageOneHeader}>
         <img className={styles.logo} src="/quote-assets/logo-ggelectrics.png" alt="GG Electrics" />
-        <div className={styles.headerFact}><span>Proyecto</span><b>Residencial Solar</b></div>
+        <div className={styles.headerFact}><span>Proyecto</span><b>Residencial Solar + ACS</b></div>
         <div className={styles.headerFact}><span>Cliente</span><b>{short(customer.contacto.nombreCompleto)}</b></div>
         <div className={styles.headerFact}><span>Ubicación</span><b>{short(customer.ubicacion.direccion || `Región ${customer.ubicacion.region}`, 40)}</b></div>
         <div className={styles.headerFact}><span>N° cotización</span><b>{number}</b></div>
@@ -125,55 +136,54 @@ function PageOne({ quote, customer }: QuotePdfDocumentProps) {
 
       <div className={styles.heroGrid}>
         <div className={styles.savingsHero}>
-          <span className={styles.heroEyebrow}>Tu beneficio mensual estimado</span>
+          <span className={styles.heroEyebrow}>Tu ahorro mensual hasta.</span>
           <strong>{formatCLP(monthlySavings)}</strong>
           <div className={styles.heroCopy}>
             <span>Hoy pagas {formatCLP(quote.gastoCuentaClpMensual)} al mes de electricidad.</span>
-            <b>Con esta propuesta tu cuenta bajaría a cerca de {formatCLP(remainingBill)}.</b>
+            <b>Con esta propuesta pagarías alrededor de {formatCLP(remainingBill)}.</b>
           </div>
           <div className={styles.savingsBar}>
             <span style={{ width: `${Math.max(2, Math.min(100, coverage * 100))}%` }} />
-            <b>-{Math.round(coverage * 100)}% de tu cuenta</b>
+            <b>-{Math.round(coverage * 100)}% de tu gasto</b>
           </div>
         </div>
         <div className={styles.financeHero}>
           <div className={styles.financeOffer}>
-            <span>{santander?.cuotas ?? 48} cuotas sin interés</span>
+            <span>Compra en {santander?.cuotas ?? 48} cuotas sin interés</span>
             <strong>{formatCLP(santander?.cuotaMensual ?? 0)}</strong>
-            <b>Diferencia real: {signedCurrency((santander?.cuotaMensual ?? 0) - monthlySavings)} al mes</b>
-            <small>el ahorro cubre gran parte de la cuota</small>
+            <b>Diferencia real: {differenceCurrency((santander?.cuotaMensual ?? 0) - monthlySavings)} al mes</b>
           </div>
           <div className={styles.financeOffer}>
-            <span>Crédito a {alza?.cuotas ?? 300} cuotas</span>
-            <strong>{formatCLP(alza?.cuotaMensual ?? 0)}</strong>
-            <b>Diferencia real: {signedCurrency((alza?.cuotaMensual ?? 0) - monthlySavings)} al mes</b>
-            <small>tu proyecto se paga con el ahorro</small>
+            <span>Compra mediante crédito verde a 25 años</span>
+            <strong>{formatUf(alza?.cuotaUf)}</strong>
+            <b>Diferencia real: {differenceCurrency((alza?.cuotaMensual ?? 0) - monthlySavings)} al mes</b>
           </div>
-          <div className={styles.visitCta}>Agenda tu visita técnica con nuestro equipo</div>
+          <div className={styles.visitCta}>Agenda tu visita técnica</div>
         </div>
       </div>
 
       <SectionBar>Qué incluye tu proyecto</SectionBar>
       <div className={styles.featureGrid}>
-        <FeatureCard title={`Planta fotovoltaica · ${quote.sistema.capacidadKwp.toLocaleString('es-CL')} kWp`} included>
+        <FeatureCard title={`Planta solar FV - On Grid · ${quote.sistema.capacidadKwp.toLocaleString('es-CL')} kWp`} included>
           <div className={styles.solarEquipment}>
-            <div className={styles.panelGroup}><span>{quote.sistema.numeroPaneles} paneles<br />{quote.sistema.potenciaPanelW} Wp</span><img src="/quote-assets/solar-panel.png" alt="Panel solar" /></div>
-            <div className={styles.panelGroup}><span>1 inversor<br />Huawei híbrido</span><img src="/quote-assets/inverter-huawei.png" alt="Inversor" /></div>
+            <div className={styles.panelGroup}><img src="/quote-assets/solar-panel.png" alt="Panel solar Tier 1" /></div>
+            <div className={styles.panelGroup}><img src="/quote-assets/warranty-10.png" alt="10 años de garantía" /></div>
+            <div className={styles.panelGroup}><img src="/quote-assets/inverter-sigen.png" alt="Inversor Sigen" /></div>
           </div>
-          <strong className={styles.featureLead}>Genera {formatKwh(quote.sistema.generacionAnualKwh)} al año</strong>
-          <p>Instalación · Trámite SEC TE4 · App de monitoreo incluida.</p>
+          <strong className={styles.featureLead}>{quote.sistema.numeroPaneles} paneles de {quote.sistema.potenciaPanelW} W y 1 inversor Sigen {inverterCapacity(quote.sistema.capacidadKwp)} kW</strong>
+          <p>Paneles TIER 1 e inversor on-grid con 10 años de garantía. Instalación, trámite y certificación SEC TE4, app de monitoreo.</p>
         </FeatureCard>
         <FeatureCard title="Batería de respaldo" included={false}>
           <img className={styles.productWide} src="/quote-assets/battery-pylontech.png" alt="Batería" />
-          <p>Sistema de almacenamiento compatible</p><b>Respaldo ante cortes de luz</b><em>→ Consúltanos para incluirla</em>
+          <p>1 batería Pylontech Fidus 5,12 kWh IP65</p><b>Respaldo ante cortes de luz</b><em>→ Consúltanos para incluirlo</em>
         </FeatureCard>
         <FeatureCard title="Bomba de calor ACS" included={false}>
           <img className={styles.productTall} src="/quote-assets/heat-pump.png" alt="Bomba de calor" />
-          <p>Agua caliente sanitaria eficiente</p><b>Ahorra gas usando energía eléctrica.</b><em>→ Consúltanos para incluirla</em>
+          <p>Bomba de calor Sidevent 270 L · R290</p><b>Ahorra gas calentando el agua con electricidad.</b><em>→ Consúltanos para incluirlo</em>
         </FeatureCard>
         <FeatureCard title="Otros servicios" included={false}>
           <div className={styles.servicesImages}><img src="/quote-assets/ev-charger.png" alt="Cargador EV" /><img src="/quote-assets/air-conditioner.png" alt="Climatización" /><img src="/quote-assets/pool-heat-pump.png" alt="Bomba piscina" /></div>
-          <b>Cargadores EV, climatización y piscinas</b><em>→ Consúltanos para incluirlos</em>
+          <b>Cargador de auto eléctrico, AC y bombas de calor para calefacción y piscina.</b><em>→ Consúltanos para incluirlo</em>
         </FeatureCard>
       </div>
 
@@ -193,18 +203,18 @@ function PageOne({ quote, customer }: QuotePdfDocumentProps) {
           <strong>{formatCLP(santander?.cuotaMensual ?? 0)}</strong><small>Solo tarjetas de crédito Santander</small>
         </div>
       </div>
-      <p className={styles.disclaimer}>Todos los valores incluyen IVA. Las cuotas son referenciales y están sujetas a evaluación y condiciones vigentes.</p>
+      <p className={styles.disclaimer}>(*) CAE 1,54% a 48 cuotas sobre monto referencial de $1.000.000. Todos los valores incluyen IVA. Sistema On-Grid ofertado no incluye baterías y no da respaldo ante cortes de luz. Cotización referencial sujeta a evaluación técnica.</p>
       <Footer page={1} />
     </section>
   );
 }
 
-function UpgradeCard({ title, capacity, image }: { title: string; capacity: string; image: string }) {
+function UpgradeCard({ title, product, detail, price, image }: { title: string; product: string; detail: string; price: string; image: string }) {
   return (
     <div className={styles.upgradeCard}>
-      <div className={styles.upgradeHeader}><span>{title}</span><b>{capacity}</b></div>
-      <div className={styles.upgradeVisual}><img src={image} alt="" /><div><strong>Sistema de almacenamiento compatible</strong><span>Energía disponible de noche y ante cortes</span></div></div>
-      <div className={styles.upgradePrice}><span>Valor adicional</span><b>Consultar</b></div>
+      <div className={styles.upgradeHeader}><span>{title}</span></div>
+      <div className={styles.upgradeVisual}><img src={image} alt="" /><div><strong>{product}</strong><span>{detail}</span></div></div>
+      <div className={styles.upgradePrice}><span>Valor adicional</span><b>{price}</b></div>
     </div>
   );
 }
@@ -227,11 +237,11 @@ function PageTwo({ quote, customer }: QuotePdfDocumentProps) {
           <small>Autoconsumo {formatKwh(quote.sistema.autoconsumoAnualKwh)} · Inyección {formatKwh(quote.sistema.inyeccionAnualKwh)}</small>
         </div>
         <div className={styles.sourceCard}>
-          <h2>Producción de energía limpia</h2><p>Tu sistema de {quote.sistema.capacidadKwp.toLocaleString('es-CL')} kWp genera energía durante todo el año.</p>
-          <strong>{formatKwh(quote.sistema.generacionAnualKwh)}</strong><span>{formatKwh(quote.sistema.generacionMensualPromKwh)} mensuales en promedio</span><small>Estimación según irradiancia de tu región.</small>
+          <h2>Menos cuenta de gas · no incluido</h2><p>Ejemplo de un hogar que hoy gasta {formatCLP(1_200_000)} al año</p>
+          <strong>-{formatCLP(960_000)}</strong><span>Ahorro promedio de {formatCLP(80_000)} al mes en gas después de instalar una bomba de calor de 270 L de ACS</span>
         </div>
         <div className={styles.sourceCardTogether}>
-          <h2>Por qué conviene ahora</h2><p>Reduces tu exposición a las alzas eléctricas y transformas gasto mensual en un activo para tu hogar.</p><p>La energía que no consumes se inyecta a la red bajo Net Billing.</p>
+          <h2>Por qué conviene junto</h2><p>La bomba de calor sube tu consumo eléctrico. Los paneles cubren exactamente ese aumento.</p><p>Por separado cada uno tiene un pero. Juntos se resuelven.</p>
         </div>
       </div>
 
@@ -239,27 +249,27 @@ function PageTwo({ quote, customer }: QuotePdfDocumentProps) {
       <div className={styles.metricGrid}>
         <MetricBox title="Retorno de la inversión" value={`${quote.paybackAnios.toLocaleString('es-CL')} años`} caption="cálculo sin considerar alzas de tarifa" />
         <MetricBox title="Ahorro acumulado en 25 años" value={formatCLP(quote.ahorro.ahorroTotalAnual * 25)} caption="vida útil estimada de los paneles" />
-        <MetricBox title="Si no haces nada" value={formatCLP(annualBill * 25)} caption="pagarías esto en 25 años sin generar energía propia" alert />
+        <MetricBox title="Si no haces nada" value={formatCLP(annualBill * 25)} caption="es lo que pagarás en 25 años sin quedarte con nada" alert />
       </div>
 
-      <SectionBar orange>Cómo puede crecer tu sistema más adelante</SectionBar>
+      <SectionBar orange>Cómo puede crecer tu sistema más adelante si cambias a un inversor híbrido</SectionBar>
       <div className={styles.growthGrid}>
         <div className={styles.hybridCard}>
-          <div><span>Inversor híbrido</span><strong>{quote.sistema.capacidadKwp.toLocaleString('es-CL')} kW</strong><small>Preparado para almacenamiento</small><b>Respaldo de emergencia y listo para crecer</b></div>
-          <img src="/quote-assets/hybrid-inverter.png" alt="Inversor híbrido" /><div className={styles.hybridPrice}><span>Valor adicional</span><b>Consultar</b></div>
+          <div><span>Cambia a un inversor GoodWe híbrido</span><strong>{inverterCapacity(quote.sistema.capacidadKwp)} kW</strong><small>GoodWe</small><b>Respaldo de emergencia (*) listo para crecer en almacenamiento</b></div>
+          <img src="/quote-assets/inverter-goodwe.png" alt="Inversor híbrido GoodWe" /><div className={styles.hybridPrice}><span>Valor adicional</span><b>{formatCLP(1_100_000)}</b></div>
         </div>
-        <UpgradeCard title="Opción 1" capacity="5 kWh" image="/quote-assets/battery-pylontech.png" />
-        <UpgradeCard title="Opción 2" capacity="10 kWh" image="/quote-assets/battery-tower.png" />
-        <UpgradeCard title="Opción 3" capacity="a definir" image="/quote-assets/sigenergy-system.png" />
+        <UpgradeCard title="Opción 1 al comprar inversor híbrido" product="Suma una batería Pylontech Fidus de 5,12 kWh" detail="Energía disponible de noche y ante cortes de luz" price={formatCLP(2_428_600)} image="/quote-assets/battery-pylontech.png" />
+        <UpgradeCard title="Opción 2 al comprar inversor híbrido" product="Suma una batería Pylontech de 16 kWh" detail="Mayor energía disponible de noche y ante cortes de luz" price={formatCLP(3_107_090)} image="/quote-assets/battery-tower.png" />
+        <UpgradeCard title="Opción 3 compra lo más premium y elegante" product="Cambia a un inversor SigenStor Neo con 7,5 kWh" detail="Diseño premium, ultra compacto y estético" price={formatCLP(3_845_310)} image="/quote-assets/sigenergy-system.png" />
       </div>
-      <p className={styles.growthNote}>Puedes incorporar almacenamiento ahora o más adelante: el sistema puede quedar preparado desde el primer día.</p>
+      <p className={styles.growthNote}>Todos los valores incluyen IVA e instalación. Puedes incorporarlos ahora o en el futuro.<br />(*) El inversor permite dar respaldo ante cortes de luz sin baterías siempre que la generación sea mayor al consumo (respaldo de emergencia con limitaciones).</p>
 
       <SectionBar>Por qué GG Electrics</SectionBar>
       <div className={styles.reasonsGrid}>
-        <div><b>Soporte remoto sin costo</b><span>Asistencia y reconexión del monitoreo cuando lo necesites.</span></div>
-        <div><b>Garantía de instalación</b><span>Gestión completa y equipos con respaldo local.</span></div>
-        <div><b>Experiencia comprobable</b><span>Más de 200 casas y 2.000 kWp instalados.</span></div>
-        <div><b>Resolvemos todo</b><span>Solar, baterías, climatización, cargadores EV y bombas.</span></div>
+        <div><b>Soporte remoto sin costo</b><span>Asistencia tras temporales y reconexión del monitoreo. Siempre, sin costo.</span></div>
+        <div><b>2 años de garantía full</b><span>Gestión completa durante 2 años. Paneles 12 años e inversor 10 años con proveedor local.</span></div>
+        <div><b>+200 casas y 2.000 kWp en proyectos</b><span>Testimonios reales en videos: youtube.com/@ggelectrics7932</span></div>
+        <div><b>Resolvemos todo</b><span>Aire acondicionado, cargador EV, bomba de piscina y calefacción. Un solo proveedor.</span></div>
       </div>
       <Footer page={2} />
     </section>

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { useCotizadorStore } from '@/lib/store';
 import { formatCLP, calcularCotizacion } from '@/lib/estimaciones';
-import { getConfig, fasesPorTipoPropiedad } from '@/lib/config';
+import { getConfig, getGeneracionPorZona, fasesPorTipoPropiedad } from '@/lib/config';
 import type { Region } from '@/lib/config';
 
 export function SuccessAnimation() {
@@ -18,6 +18,7 @@ export function SuccessAnimation() {
         region: ubicacion.region as Region,
         fases: fasesPorTipoPropiedad(data.propiedad.tipoPropiedad),
         config: getConfig(),
+        generacionPorZona: getGeneracionPorZona(),
       })
     : null;
 

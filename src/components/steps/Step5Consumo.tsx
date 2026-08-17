@@ -29,7 +29,7 @@ export function Step5Consumo() {
   const next = useCotizadorStore((s) => s.next);
   const leadEnviado = useCotizadorStore((s) => s.leadEnviado);
   const setLeadEnviado = useCotizadorStore((s) => s.setLeadEnviado);
-  const { config, version } = useConfig();
+  const { config, genZona, version } = useConfig();
 
   const detallada = requiereCotizacionDetallada(tipoPropiedad);
   const esCasa = tipoPropiedad === 'casa' || tipoPropiedad === 'casa_construccion';
@@ -51,9 +51,10 @@ export function Step5Consumo() {
       region,
       fases: fasesPorTipoPropiedad(tipoPropiedad),
       config,
+      generacionPorZona: genZona,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [consumo, region, tipoPropiedad, config, version]);
+  }, [consumo, region, tipoPropiedad, config, genZona, version]);
 
   const isValid = valorActual > 0;
 

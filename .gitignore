@@ -8,3 +8,7 @@ build
 npm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
+.vercel
+.env*.local
+output/
+supabase/.temp/
