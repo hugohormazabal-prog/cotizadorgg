@@ -19,14 +19,36 @@ function serverClient() {
   return createClient(url, serviceKey, { auth: { persistSession: false } });
 }
 
+function matchesSecret(expected: string, supplied: string): boolean {
+  const left = Buffer.from(expected);
+  const right = Buffer.from(supplied);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
+function isAuthConfigured(): boolean {
+  return Boolean(process.env.MANTENEDOR_ACCOUNTS || process.env.MANTENEDOR_ACCESS_KEY);
+}
+
 function isAuthorized(request: NextRequest): boolean {
+  const accounts = process.env.MANTENEDOR_ACCOUNTS;
+  if (accounts) {
+    const username = request.headers.get('x-mantenedor-user')?.trim().toLowerCase() ?? '';
+    const password = request.headers.get('x-mantenedor-password') ?? '';
+    return accounts.split(',').some((account) => {
+      const separator = account.indexOf(':');
+      if (separator < 1) return false;
+      const configuredUser = account.slice(0, separator).trim().toLowerCase();
+      const configuredPassword = account.slice(separator + 1).trim();
+      return username === configuredUser && matchesSecret(configuredPassword, password);
+    });
+  }
+
+  // Compatibilidad con instalaciones que ya usaban una clave única.
   const expected = process.env.MANTENEDOR_ACCESS_KEY;
   if (!expected) return true;
   const bearer = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
   const supplied = request.headers.get('x-mantenedor-key') ?? bearer ?? '';
-  const left = Buffer.from(expected);
-  const right = Buffer.from(supplied);
-  return left.length === right.length && timingSafeEqual(left, right);
+  return matchesSecret(expected, supplied);
 }
 
 function defaultBundle(): ConfigBundle {
@@ -62,7 +84,7 @@ export async function GET(request: NextRequest) {
       latestDraft: null,
       history: [],
       mode: 'local',
-      authRequired: Boolean(process.env.MANTENEDOR_ACCESS_KEY),
+      authRequired: isAuthConfigured(),
       warning: 'Configura SUPABASE_SERVICE_ROLE_KEY para publicar globalmente.',
     });
   }
@@ -81,7 +103,7 @@ export async function GET(request: NextRequest) {
       latestDraft: null,
       history: [],
       mode: 'local',
-      authRequired: Boolean(process.env.MANTENEDOR_ACCESS_KEY),
+      authRequired: isAuthConfigured(),
       warning: 'Aplica la migración 0003 para habilitar configuración central.',
     });
   }
@@ -104,7 +126,7 @@ export async function GET(request: NextRequest) {
     latestDraft,
     history,
     mode: 'central',
-    authRequired: Boolean(process.env.MANTENEDOR_ACCESS_KEY),
+    authRequired: isAuthConfigured(),
   });
 }
 

@@ -73,8 +73,16 @@ function fieldChangeCount(
   return count;
 }
 
-function apiHeaders(accessKey: string): Record<string, string> {
-  return accessKey ? { 'x-mantenedor-key': accessKey } : {};
+function apiHeaders(username: string, password: string): Record<string, string> {
+  if (username || password) {
+    return {
+      'x-mantenedor-user': username,
+      'x-mantenedor-password': password,
+      // Mantiene funcionando instalaciones con MANTENEDOR_ACCESS_KEY.
+      'x-mantenedor-key': password,
+    };
+  }
+  return {};
 }
 
 function FieldShell({ label, htmlFor, hint, error, children }: {
@@ -191,15 +199,16 @@ export default function MantenedorPage() {
   const [selectedRegion, setSelectedRegion] = useState<Region>('Metropolitana');
   const [scenarioSpend, setScenarioSpend] = useState(70_000);
   const [scenarioRegion, setScenarioRegion] = useState<Region>('Metropolitana');
-  const [accessKey, setAccessKey] = useState('');
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('');
   const [needsKey, setNeedsKey] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(async (key = accessKey) => {
+  const load = useCallback(async (user = username, secret = password) => {
     setBusy(true);
     setMessage(null);
     try {
-      const response = await fetch('/api/config?scope=admin', { cache: 'no-store', headers: apiHeaders(key) });
+      const response = await fetch('/api/config?scope=admin', { cache: 'no-store', headers: apiHeaders(user, secret) });
       if (response.status === 401) {
         setNeedsKey(true);
         setMode('local');
@@ -227,7 +236,10 @@ export default function MantenedorPage() {
       setBaseVersion(Math.max(active.version, payload.published.version, ...(payload.history ?? []).map((item) => item.version)));
       setMode(payload.mode);
       setNeedsKey(false);
-      if (key) sessionStorage.setItem('gg-mantenedor-key', key);
+      if (user || secret) {
+        sessionStorage.setItem('gg-mantenedor-user', user);
+        sessionStorage.setItem('gg-mantenedor-password', secret);
+      }
       if (payload.warning) setMessage({ type: 'info', text: payload.warning });
     } catch (error) {
       setMode('local');
@@ -241,12 +253,14 @@ export default function MantenedorPage() {
     } finally {
       setBusy(false);
     }
-  }, [accessKey]);
+  }, [username, password]);
 
   useEffect(() => {
-    const savedKey = sessionStorage.getItem('gg-mantenedor-key') ?? '';
-    setAccessKey(savedKey);
-    void load(savedKey);
+    const savedUser = sessionStorage.getItem('gg-mantenedor-user') ?? 'admin';
+    const savedPassword = sessionStorage.getItem('gg-mantenedor-password') ?? '';
+    setUsername(savedUser);
+    setPassword(savedPassword);
+    void load(savedUser, savedPassword);
     // Se ejecuta una vez al montar; load recibe la clave de sessionStorage.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -302,7 +316,7 @@ export default function MantenedorPage() {
       if (mode === 'central') {
         const response = await fetch('/api/config', {
           method: 'POST',
-          headers: { 'content-type': 'application/json', ...apiHeaders(accessKey) },
+          headers: { 'content-type': 'application/json', ...apiHeaders(username, password) },
           body: JSON.stringify({ action, config, genZona, expectedVersion: baseVersion, comment }),
         });
         const payload = await response.json();
@@ -383,12 +397,14 @@ export default function MantenedorPage() {
   if (needsKey) {
     return (
       <main className="grid min-h-screen place-items-center bg-slate-100 p-4">
-        <form className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-xl" onSubmit={(event) => { event.preventDefault(); void load(accessKey); }}>
+        <form className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-xl" onSubmit={(event) => { event.preventDefault(); void load(username, password); }}>
           <div className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-100 text-amber-700"><KeyRound /></div>
           <h1 className="mt-5 text-2xl font-bold text-slate-950">Acceso al mantenedor</h1>
-          <p className="mt-2 text-sm text-slate-600">La protección ya está preparada en servidor. Ingresa la clave configurada para continuar.</p>
-          <label htmlFor="access-key" className="mt-5 block text-sm font-semibold text-slate-800">Clave</label>
-          <input id="access-key" type="password" value={accessKey} onChange={(event) => setAccessKey(event.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-base outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100" autoFocus />
+          <p className="mt-2 text-sm text-slate-600">Ingresa una cuenta autorizada para administrar los cálculos y equipos.</p>
+          <label htmlFor="access-user" className="mt-5 block text-sm font-semibold text-slate-800">Usuario</label>
+          <input id="access-user" type="text" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-base outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100" autoFocus />
+          <label htmlFor="access-password" className="mt-4 block text-sm font-semibold text-slate-800">Contraseña</label>
+          <input id="access-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-base outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100" />
           <button type="submit" disabled={busy} className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 font-semibold text-white disabled:opacity-60">{busy && <Loader2 className="h-4 w-4 animate-spin" />} Entrar</button>
         </form>
       </main>
