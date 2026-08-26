@@ -220,7 +220,6 @@ export default function MantenedorPage() {
         latestDraft: ConfigBundle | null;
         history: ConfigBundle[];
         mode: 'local' | 'central';
-        warning?: string;
       };
       const localBundle: ConfigBundle = {
         config: getConfig(), genZona: getGeneracionPorZona(), version: 0, status: 'local',
@@ -240,7 +239,6 @@ export default function MantenedorPage() {
         sessionStorage.setItem('gg-mantenedor-user', user);
         sessionStorage.setItem('gg-mantenedor-password', secret);
       }
-      if (payload.warning) setMessage({ type: 'info', text: payload.warning });
     } catch (error) {
       setMode('local');
       const localConfig = getConfig();
@@ -419,7 +417,7 @@ export default function MantenedorPage() {
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-amber-300"><Settings2 className="h-5 w-5" /></div>
             <div className="min-w-0">
               <h1 className="truncate text-base font-bold sm:text-lg">Mantenedor del cotizador</h1>
-              <p className="truncate text-xs text-slate-500">{mode === 'central' ? `Versión ${published.version} publicada` : mode === 'loading' ? 'Cargando…' : 'Modo local · falta configurar publicación central'}</p>
+              <p className="truncate text-xs text-slate-500">{mode === 'central' ? `Versión ${published.version} publicada` : mode === 'loading' ? 'Cargando…' : 'Modo local'}</p>
             </div>
           </div>
           <div className="flex w-full items-center gap-2 sm:w-auto">

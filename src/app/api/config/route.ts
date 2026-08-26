@@ -85,7 +85,6 @@ export async function GET(request: NextRequest) {
       history: [],
       mode: 'local',
       authRequired: isAuthConfigured(),
-      warning: 'Configura SUPABASE_SERVICE_ROLE_KEY para publicar globalmente.',
     });
   }
 
@@ -104,7 +103,6 @@ export async function GET(request: NextRequest) {
       history: [],
       mode: 'local',
       authRequired: isAuthConfigured(),
-      warning: 'Aplica la migración 0003 para habilitar configuración central.',
     });
   }
 
