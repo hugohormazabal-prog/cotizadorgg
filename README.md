@@ -26,7 +26,7 @@ Copia `.env.example` a `.env.local` y completa:
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Guardar las solicitudes de cotización en Supabase (tabla `cotizaciones`) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Persistencia central y versionada del mantenedor; solo servidor |
-| `MANTENEDOR_ACCOUNTS` | Login simple del mantenedor, en formato `usuario:contraseña` separado por comas |
+| `MANTENEDOR_ACCOUNTS` | Login simple del único administrador, en formato `usuario:contraseña` |
 | `MANTENEDOR_ACCESS_KEY` | Compatibilidad opcional con el acceso antiguo por una sola clave |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Autocompletado de direcciones (Places) y mapa interactivo con pin arrastrable en la Etapa 4 |
 
@@ -77,8 +77,7 @@ supabase/
 ## Mantenedor de cálculo
 
 Abre `/mantenedor`. Para un login rápido de demostración, define en `.env.local`
-`MANTENEDOR_ACCOUNTS=admin:solar2026,tecnico:solar2026,ventas:solar2026` y usa
-cualquiera de esas cuentas. Sin credenciales de servidor funciona en modo local de
+`MANTENEDOR_ACCOUNTS=admin:solar2026`. Sin credenciales de servidor funciona en modo local de
 desarrollo; con Supabase configurado guarda borradores y publicaciones globales,
 mantiene historial, valida los valores y bloquea conflictos entre sesiones. Cada
 solicitud registra la versión y una instantánea de los parámetros usados.
