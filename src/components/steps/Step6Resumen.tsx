@@ -161,7 +161,7 @@ export function Step6Resumen() {
                 {/* Gráfico de payback */}
                 <PaybackChart
                   precioProyecto={cotizacion.precioProyectoClp}
-                  ahorroAnual={cotizacion.ahorro.ahorroTotalAnual}
+                  ahorroAcumuladoPorAnio={cotizacion.proyeccion.ahorroAcumuladoPorAnioClp}
                   paybackAnios={cotizacion.paybackAnios}
                   opcionSel={opcionSel}
                   opcion={cotizacion.opcionesFinanciamiento.find(o => o.id === opcionSel) ?? cotizacion.opcionesFinanciamiento[0]}
@@ -261,25 +261,25 @@ function OpcionCard({ opcion, selected, onClick }: { opcion: FinanciamientoOpcio
 
 function PaybackChart({
   precioProyecto,
-  ahorroAnual,
+  ahorroAcumuladoPorAnio,
   paybackAnios,
   opcionSel,
   opcion,
 }: {
   precioProyecto: number;
-  ahorroAnual: number;
+  ahorroAcumuladoPorAnio: number[];
   paybackAnios: number;
   opcionSel: string;
   opcion: FinanciamientoOpcion;
 }) {
-  const years = 20;
+  const years = Math.min(20, ahorroAcumuladoPorAnio.length);
 
   // Genera puntos: acumulado de ahorro vs costo total en el tiempo
   const data = useMemo(() => {
     const cuotasTotal = opcion.cuotas > 0 ? opcion.cuotaMensual * opcion.cuotas : opcion.montoTotal;
     const pts = [];
     for (let y = 0; y <= years; y++) {
-      const ahorroAcum = ahorroAnual * y;
+      const ahorroAcum = y === 0 ? 0 : (ahorroAcumuladoPorAnio[y - 1] ?? ahorroAcumuladoPorAnio.at(-1) ?? 0);
       const costoAcum = opcion.cuotas > 0
         ? Math.min(cuotasTotal, opcion.cuotaMensual * 12 * y)
         : precioProyecto;
@@ -291,7 +291,7 @@ function PaybackChart({
       });
     }
     return pts;
-  }, [precioProyecto, ahorroAnual, opcion]);
+  }, [precioProyecto, ahorroAcumuladoPorAnio, opcion, years]);
 
   const breakEvenYear = Math.ceil(paybackAnios);
 

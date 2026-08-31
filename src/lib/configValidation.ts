@@ -1,4 +1,5 @@
 import {
+  CONFIG_DEFAULT,
   calcularCreditoAlza,
   costoGeneralPorKwpNeto,
   precioInyeccionKwhClp,
@@ -13,6 +14,46 @@ export interface ConfigIssue {
   field: string;
   message: string;
   severity: ValidationSeverity;
+}
+
+/** Rechaza escrituras incompletas antes de que la migración aplique defaults. */
+export function validateRawConfigPayload(configValue: unknown, generationValue: unknown): ConfigIssue[] {
+  const issues: ConfigIssue[] = [];
+  const config = typeof configValue === 'object' && configValue !== null && !Array.isArray(configValue)
+    ? configValue as Record<string, unknown>
+    : null;
+  if (!config) return [{ field: 'config', message: 'La configuración enviada no es válida.', severity: 'error' }];
+
+  for (const [key, defaultValue] of Object.entries(CONFIG_DEFAULT)) {
+    if (!(key in config)) {
+      issues.push({ field: key, message: `Falta el campo configurable ${key}.`, severity: 'error' });
+    } else if (typeof defaultValue === 'number' && (typeof config[key] !== 'number' || !Number.isFinite(config[key]))) {
+      issues.push({ field: key, message: `${key} debe ser un número válido.`, severity: 'error' });
+    }
+  }
+  for (const key of ['catalogoPaneles', 'catalogoInversores', 'partidasCostoKwp', 'mpcAnualClpKwh']) {
+    if (!Array.isArray(config[key]) || config[key].length === 0) {
+      issues.push({ field: key, message: `${key} debe contener datos.`, severity: 'error' });
+    }
+  }
+  if (typeof config.variablesVinculantesKwp !== 'object' || config.variablesVinculantesKwp === null || Array.isArray(config.variablesVinculantesKwp)) {
+    issues.push({ field: 'variablesVinculantesKwp', message: 'Faltan las variables vinculantes por kWp.', severity: 'error' });
+  }
+
+  const generation = typeof generationValue === 'object' && generationValue !== null && !Array.isArray(generationValue)
+    ? generationValue as Record<string, unknown>
+    : null;
+  if (!generation) {
+    issues.push({ field: 'genZona', message: 'La matriz regional enviada no es válida.', severity: 'error' });
+  } else {
+    for (const region of REGIONES) {
+      const row = generation[region];
+      if (!Array.isArray(row) || row.length !== 12 || row.some((value) => typeof value !== 'number' || !Number.isFinite(value))) {
+        issues.push({ field: `genZona.${region}`, message: `${region} debe contener 12 números válidos.`, severity: 'error' });
+      }
+    }
+  }
+  return issues;
 }
 
 function finiteRange(
@@ -139,6 +180,18 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
   finiteRange(issues, 'degradacionPaneles', config.degradacionPaneles, 0, 0.1, 'Degradación');
   finiteRange(issues, 'periodoEvaluacionAnios', config.periodoEvaluacionAnios, 1, 50, 'Período de evaluación');
   finiteRange(issues, 'tasaDescuentoAnual', config.tasaDescuentoAnual, 0, 1, 'Tasa de descuento');
+  if (config.mpcAnualClpKwh.length < config.periodoEvaluacionAnios) {
+    issues.push({
+      field: 'mpcAnualClpKwh',
+      message: `La serie MPC debe cubrir los ${config.periodoEvaluacionAnios} años del horizonte.`,
+      severity: 'error',
+    });
+  }
+  config.mpcAnualClpKwh.forEach((value, index) => {
+    if (!Number.isFinite(value) || value < -10_000 || value > 10_000) {
+      issues.push({ field: `mpcAnualClpKwh.${index}`, message: `MPC del año ${index + 1} no es válido.`, severity: 'error' });
+    }
+  });
   finiteRange(issues, 'anioReposicion1', config.anioReposicion1, 1, 50, 'Año de primera reposición');
   finiteRange(issues, 'inversionRespuesto10', config.inversionRespuesto10, 0, 100_000_000, 'Costo de primera reposición');
   finiteRange(issues, 'anioReposicion2', config.anioReposicion2, 1, 50, 'Año de segunda reposición');
@@ -157,14 +210,10 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
   finiteRange(issues, 'alzaCostoUnitarioClp', config.alzaCostoUnitarioClp, 0, 100_000_000, 'Costo unitario ALZA');
   finiteRange(issues, 'alzaPieClp', config.alzaPieClp, 0, 100_000_000, 'Pie ALZA');
   finiteRange(issues, 'valorUfClp', config.valorUfClp, 1, 1_000_000, 'Valor UF');
-  finiteRange(issues, 'garantiaPaneles', config.garantiaPaneles, 0, 50, 'Garantía de paneles');
-  finiteRange(issues, 'garantiaInversor', config.garantiaInversor, 0, 50, 'Garantía de inversor');
   finiteRange(issues, 'garantiaInstalacion', config.garantiaInstalacion, 0, 20, 'Garantía de instalación');
   finiteRange(issues, 'co2FactorKgPerKwh', config.co2FactorKgPerKwh, 0, 5, 'Factor de mitigación CO₂');
 
   const integerFields: Array<[keyof ConfigCotizador, number, string]> = [
-    ['costoMaterialesGeneralesPorKwpNeto', config.costoMaterialesGeneralesPorKwpNeto, 'Costo de materiales generales'],
-    ['costoServiciosPorKwpNeto', config.costoServiciosPorKwpNeto, 'Costo de servicios'],
     ['minPaneles', config.minPaneles, 'Mínimo de paneles'],
     ['maxPanelesMonofasico', config.maxPanelesMonofasico, 'Máximo monofásico'],
     ['cuotasMP', config.cuotasMP, 'Cuotas Mercado Pago'],
@@ -175,8 +224,6 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
     ['periodoEvaluacionAnios', config.periodoEvaluacionAnios, 'Período de evaluación'],
     ['anioReposicion1', config.anioReposicion1, 'Año de primera reposición'],
     ['anioReposicion2', config.anioReposicion2, 'Año de segunda reposición'],
-    ['garantiaPaneles', config.garantiaPaneles, 'Garantía de paneles'],
-    ['garantiaInversor', config.garantiaInversor, 'Garantía de inversor'],
     ['garantiaInstalacion', config.garantiaInstalacion, 'Garantía de instalación'],
   ];
   for (const [field, value, label] of integerFields) {

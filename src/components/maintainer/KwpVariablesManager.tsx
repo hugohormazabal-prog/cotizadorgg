@@ -124,7 +124,7 @@ export function KwpVariablesManager({
       <Section
         icon={Ruler}
         title="Variables vinculantes por kWp"
-        description="Cada coeficiente se multiplica por la potencia instalada. Así las cantidades dejan de depender de valores fijos o del número de paneles."
+        description="Cada coeficiente se multiplica por la potencia instalada. Metros, mesas y protección actualizan también su partida de costo y el precio final."
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {COEFFICIENTS.map((field) => {
@@ -181,7 +181,7 @@ export function KwpVariablesManager({
           <div className="overflow-hidden rounded-2xl border border-slate-200">
             <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-950 px-4 py-3 text-white">
               <span className="text-sm font-bold">Sistema de {preview.sistema.capacidadKwp.toLocaleString('es-CL')} kWp</span>
-              <span className="text-xs text-slate-300">{preview.sistema.numeroPaneles} paneles</span>
+              <span className="text-xs text-slate-300">{preview.sistema.numeroPaneles} paneles · {formatCLP(preview.precioProyectoClp)}</span>
             </div>
             <dl className="grid sm:grid-cols-2 xl:grid-cols-3">
               {RESULT_ROWS.map((row) => (

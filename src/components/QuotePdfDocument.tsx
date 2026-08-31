@@ -168,9 +168,9 @@ function PageOne({ quote, customer }: QuotePdfDocumentProps) {
           <div className={styles.solarEquipment}>
             <div className={styles.panelGroup}><img src="/quote-assets/solar-panel.png" alt="Panel solar Tier 1" /></div>
             <div className={styles.panelGroup}><img src="/quote-assets/warranty-10.png" alt="10 años de garantía" /></div>
-            <div className={styles.panelGroup}><img src="/quote-assets/inverter-sigen.png" alt="Inversor Sigen" /></div>
+            <div className={styles.panelGroup}><img src="/quote-assets/inverter-sigen.png" alt="Inversor de la propuesta" /></div>
           </div>
-          <strong className={styles.featureLead}>{quote.sistema.numeroPaneles} paneles de {quote.sistema.potenciaPanelW} W y 1 inversor Sigen {inverterCapacity(quote.sistema.capacidadKwp)} kW</strong>
+          <strong className={styles.featureLead}>{quote.sistema.numeroPaneles} paneles de {quote.sistema.potenciaPanelW} W y 1 {quote.sistema.marcaInversor} de {quote.sistema.potenciaInversorKw} kW</strong>
           <p>Paneles TIER 1 e inversor on-grid con 10 años de garantía. Instalación, trámite y certificación SEC TE4, app de monitoreo.</p>
         </FeatureCard>
         <FeatureCard title="Batería de respaldo" included={false}>
@@ -248,8 +248,8 @@ function PageTwo({ quote, customer }: QuotePdfDocumentProps) {
       <SectionBar>Cuándo recuperas tu inversión</SectionBar>
       <div className={styles.metricGrid}>
         <MetricBox title="Retorno de la inversión" value={`${quote.paybackAnios.toLocaleString('es-CL')} años`} caption="cálculo sin considerar alzas de tarifa" />
-        <MetricBox title="Ahorro acumulado en 25 años" value={formatCLP(quote.ahorro.ahorroTotalAnual * 25)} caption="vida útil estimada de los paneles" />
-        <MetricBox title="Si no haces nada" value={formatCLP(annualBill * 25)} caption="es lo que pagarás en 25 años sin quedarte con nada" alert />
+        <MetricBox title={`Ahorro acumulado en ${quote.proyeccion.periodoAnios} años`} value={formatCLP(quote.proyeccion.ahorroAcumuladoClp)} caption="incluye degradación y reposiciones configuradas" />
+        <MetricBox title="Si no haces nada" value={formatCLP(quote.proyeccion.costoEnergiaSinProyectoClp)} caption={`costo proyectado de energía en ${quote.proyeccion.periodoAnios} años`} alert />
       </div>
 
       <SectionBar orange>Cómo puede crecer tu sistema más adelante si cambias a un inversor híbrido</SectionBar>

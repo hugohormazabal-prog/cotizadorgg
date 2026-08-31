@@ -61,14 +61,14 @@ export interface VariablesVinculantesKwp {
 }
 
 const DEFAULT_PARTIDAS_COSTO_KWP: PartidaCostoKwp[] = [
-  { id: 'estructura', nombre: 'Estructura y fijaciones', categoria: 'materiales', costoNetoClpPorKwp: 34_043, activa: true, referenciaExcel: 'EST / COTBACK!257:269' },
-  { id: 'comunicacion', nombre: 'Comunicación y medición', categoria: 'materiales', costoNetoClpPorKwp: 12_216, activa: true, referenciaExcel: 'COM / COTBACK!271:273' },
-  { id: 'cables-canalizacion', nombre: 'Cables y canalización', categoria: 'materiales', costoNetoClpPorKwp: 87_867, activa: true, referenciaExcel: 'CABLE / CAN / COTBACK!275:324' },
-  { id: 'tableros-protecciones', nombre: 'Tableros y protecciones', categoria: 'materiales', costoNetoClpPorKwp: 25_188, activa: true, referenciaExcel: 'TAB / COTBACK!326:342' },
-  { id: 'gestion-proyecto', nombre: 'Gestión del proyecto', categoria: 'servicios', costoNetoClpPorKwp: 58_767, activa: true, referenciaExcel: 'SERV / COTBACK!344' },
-  { id: 'instalacion', nombre: 'Instalación', categoria: 'servicios', costoNetoClpPorKwp: 171_022, activa: true, referenciaExcel: 'SERV / COTBACK!345' },
-  { id: 'ingenieria-tramite', nombre: 'Ingeniería TE4 y conexión', categoria: 'servicios', costoNetoClpPorKwp: 66_134, activa: true, referenciaExcel: 'SERV / COTBACK!346' },
-  { id: 'puesta-marcha', nombre: 'Puesta en marcha, rotulación y logística', categoria: 'servicios', costoNetoClpPorKwp: 6_071, activa: true, referenciaExcel: 'SERV / COTBACK!347:360' },
+  { id: 'estructura', nombre: 'Estructura y fijaciones', categoria: 'materiales', costoNetoClpPorKwp: 137_924 / 6.2, activa: true, referenciaExcel: 'CUBICADOR!G15:G28' },
+  { id: 'comunicacion', nombre: 'Comunicación y medición', categoria: 'materiales', costoNetoClpPorKwp: 51_000 / 6.2, activa: true, referenciaExcel: 'CUBICADOR!G29:G32' },
+  { id: 'cables-canalizacion', nombre: 'Cables y canalización', categoria: 'materiales', costoNetoClpPorKwp: 360_717.2605042017 / 6.2, activa: true, referenciaExcel: 'CUBICADOR!G33:G83' },
+  { id: 'tableros-protecciones', nombre: 'Tableros y protecciones', categoria: 'materiales', costoNetoClpPorKwp: 104_950 / 6.2, activa: true, referenciaExcel: 'CUBICADOR!G84:G101' },
+  { id: 'gestion-proyecto', nombre: 'Gestión del proyecto', categoria: 'servicios', costoNetoClpPorKwp: 277_594.1002949852 / 6.2, activa: true, referenciaExcel: 'CUBICADOR!G103' },
+  { id: 'instalacion', nombre: 'Instalación', categoria: 'servicios', costoNetoClpPorKwp: 130_000, activa: true, referenciaExcel: 'CUBICADOR!G104' },
+  { id: 'ingenieria-tramite', nombre: 'Ingeniería TE4 y conexión', categoria: 'servicios', costoNetoClpPorKwp: 312_499.1596638656 / 6.2, activa: true, referenciaExcel: 'CUBICADOR!G105' },
+  { id: 'puesta-marcha', nombre: 'Puesta en marcha, rotulación y logística', categoria: 'servicios', costoNetoClpPorKwp: 28_720 / 6.2, activa: true, referenciaExcel: 'CUBICADOR!G107,G116:G130' },
 ];
 
 const DEFAULT_VARIABLES_VINCULANTES_KWP: VariablesVinculantesKwp = {
@@ -149,6 +149,8 @@ export interface ConfigCotizador {
   degradacionPaneles: number;
   periodoEvaluacionAnios: number;
   tasaDescuentoAnual: number;
+  /** Serie MPC de las hojas FC, un valor por año del horizonte. */
+  mpcAnualClpKwh: number[];
   anioReposicion1: number;
   inversionRespuesto10: number;
   anioReposicion2: number;
@@ -173,8 +175,6 @@ export interface ConfigCotizador {
   valorUfClp: number;
 
   // Garantías / impacto
-  garantiaPaneles: number;
-  garantiaInversor: number;
   garantiaInstalacion: number;
   co2FactorKgPerKwh: number;
 }
@@ -184,7 +184,7 @@ const CAPACIDAD_REFERENCIA_KWP = 3.72;
 const EQUIPOS_REFERENCIA_POR_KWP = EQUIPOS_REFERENCIA_NETO / CAPACIDAD_REFERENCIA_KWP;
 
 export const CONFIG_DEFAULT: ConfigCotizador = {
-  schemaVersion: 6,
+  schemaVersion: 7,
   precioKwhClp: 250,
   precioNudoInyeccionClp: 105.7033,
   ivaInyeccion: 1.19,
@@ -194,21 +194,23 @@ export const CONFIG_DEFAULT: ConfigCotizador = {
   minPaneles: 1,
 
   panelPotenciaW: 620,
-  panelMarcaModelo: 'Panel Longi 620 W',
-  inversorMarcaModelo: 'Inversor Sigen On-Grid',
-  inversorPotenciaMinKw: 3,
+  panelMarcaModelo: 'Panel Ulica 620 W',
+  inversorMarcaModelo: 'Inversor Huawei Híbrido 6kW',
+  inversorPotenciaMinKw: 6,
   catalogoPaneles: DEFAULT_PANELS,
   catalogoInversores: DEFAULT_INVERTERS,
-  panelActivoId: 'panel-longi-620-w',
-  inversorActivoId: 'inverter-sigen-on-grid-web',
+  panelActivoId: 'panel-ulica-620-w',
+  inversorActivoId: 'inverter-huawei-hibrido-6kw',
 
-  // El total anterior de materiales incluía 6 paneles Longi y 1 inversor.
-  // Esta base conserva el caso 3,72 kWp -> $3.919.000 sin duplicar equipos.
+  // Base reconciliada contra CUBICADOR para el caso patrón de 6,2 kWp.
+  // Paneles e inversor se cobran aparte para no duplicar equipos físicos.
   partidasCostoKwp: DEFAULT_PARTIDAS_COSTO_KWP,
   variablesVinculantesKwp: DEFAULT_VARIABLES_VINCULANTES_KWP,
-  costoMaterialesGeneralesPorKwpNeto: 159_314,
-  costoServiciosPorKwpNeto: 301_994,
-  margen: 0.2111,
+  costoMaterialesGeneralesPorKwpNeto: 105_579.23556519382,
+  costoServiciosPorKwpNeto: 229_808.5903159437,
+  // Margen efectivo del caso auditado (CUBICADOR!L6). MAIN!C26 mantiene 19%
+  // como objetivo, pero los precios unitarios redondeados producen 19,4089%.
+  margen: 0.19408932625004194,
   ivaVenta: 1.19,
   redondeoPrecioClp: 1_000,
 
@@ -216,14 +218,20 @@ export const CONFIG_DEFAULT: ConfigCotizador = {
   degradacionPaneles: 0.005,
   periodoEvaluacionAnios: 25,
   tasaDescuentoAnual: 0,
-  anioReposicion1: 10,
-  inversionRespuesto10: 518_000,
-  anioReposicion2: 22,
-  inversionRespuesto22: 518_000,
+  mpcAnualClpKwh: [
+    22.27263112630642, 22.382627233079518, 9.022196427950734,
+    9.0667536459996, 9.111530915307169, 9.15652932262344,
+    9.20174996006545, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  ],
+  anioReposicion1: 11,
+  inversionRespuesto10: 819_000,
+  anioReposicion2: 21,
+  inversionRespuesto22: 819_000,
 
-  factorMP: 1.1832,
+  // Comisión MP 6,99% + operación 3,19%, ambas con IVA.
+  factorMP: 1 / (1 - 0.0699 * 1.19 - 0.0319 * 1.19),
   cuotasMP: 12,
-  factorSantander: 1.1832,
+  factorSantander: 1 / (1 - 0.13 * 1.19),
   cuotasSantander: 48,
 
   alzaTasaAnual: 0.0639,
@@ -237,8 +245,6 @@ export const CONFIG_DEFAULT: ConfigCotizador = {
   alzaPieClp: 0,
   valorUfClp: 40_845,
 
-  garantiaPaneles: 12,
-  garantiaInversor: 10,
   garantiaInstalacion: 1,
   co2FactorKgPerKwh: 0.5,
 };
@@ -414,12 +420,18 @@ function normalizeVariablesVinculantes(value: unknown): VariablesVinculantesKwp 
 
 export function normalizeConfig(value: unknown): ConfigCotizador {
   const raw = isRecord(value) ? value : {};
+  const migratingToV7 = Number(raw.schemaVersion ?? 0) < 7;
   const normalized: Record<string, unknown> = { ...CONFIG_DEFAULT };
   for (const [key, defaultValue] of Object.entries(CONFIG_DEFAULT)) {
     if (!(key in raw)) continue;
     const incoming = raw[key];
     if (key === 'catalogoPaneles') normalized[key] = normalizePanels(incoming);
     else if (key === 'catalogoInversores') normalized[key] = normalizeInverters(incoming);
+    else if (key === 'mpcAnualClpKwh') {
+      normalized[key] = Array.isArray(incoming)
+        ? incoming.map((item) => typeof item === 'number' ? item : Number.NaN)
+        : CONFIG_DEFAULT.mpcAnualClpKwh;
+    }
     else if (key === 'partidasCostoKwp' || key === 'variablesVinculantesKwp') continue;
     else if (typeof defaultValue === 'number') normalized[key] = typeof incoming === 'number' ? incoming : Number.NaN;
     else if (typeof defaultValue === 'string') normalized[key] = typeof incoming === 'string' ? incoming : '';
@@ -444,6 +456,18 @@ export function normalizeConfig(value: unknown): ConfigCotizador {
     merged.alzaPieClp = CONFIG_DEFAULT.alzaPieClp;
     merged.valorUfClp = CONFIG_DEFAULT.valorUfClp;
   }
+  if (migratingToV7) {
+    // Corrige supuestos que divergían del libro auditado y agrega la serie MPC.
+    merged.mpcAnualClpKwh = [...CONFIG_DEFAULT.mpcAnualClpKwh];
+    merged.anioReposicion1 = CONFIG_DEFAULT.anioReposicion1;
+    merged.inversionRespuesto10 = CONFIG_DEFAULT.inversionRespuesto10;
+    merged.anioReposicion2 = CONFIG_DEFAULT.anioReposicion2;
+    merged.inversionRespuesto22 = CONFIG_DEFAULT.inversionRespuesto22;
+    merged.factorMP = CONFIG_DEFAULT.factorMP;
+    merged.factorSantander = CONFIG_DEFAULT.factorSantander;
+    merged.margen = CONFIG_DEFAULT.margen;
+    if (raw.co2FactorKgPerKwh === 0.4) merged.co2FactorKgPerKwh = CONFIG_DEFAULT.co2FactorKgPerKwh;
+  }
   if (
     typeof raw.costoPorKwpClpIva === 'number'
     && raw.costoMaterialesGeneralesPorKwpNeto == null
@@ -458,7 +482,7 @@ export function normalizeConfig(value: unknown): ConfigCotizador {
     merged.costoServiciosPorKwpNeto = Math.round(base * (1 - legacyMaterialShare));
   }
   merged.partidasCostoKwp = normalizePartidasCosto(
-    raw.partidasCostoKwp,
+    migratingToV7 ? undefined : raw.partidasCostoKwp,
     merged.costoMaterialesGeneralesPorKwpNeto,
     merged.costoServiciosPorKwpNeto,
   );
@@ -467,6 +491,16 @@ export function normalizeConfig(value: unknown): ConfigCotizador {
   merged.costoServiciosPorKwpNeto = costoPartidasPorCategoria(merged.partidasCostoKwp, 'servicios');
   merged.catalogoPaneles = normalizePanels(merged.catalogoPaneles);
   merged.catalogoInversores = normalizeInverters(merged.catalogoInversores);
+  if (migratingToV7) {
+    merged.catalogoPaneles = merged.catalogoPaneles.map((item) => item.id === 'panel-ulica-620-w'
+      ? { ...item, costoNetoClp: 76_500, precioVentaClp: 95_000, margen: 0.19 }
+      : item);
+    merged.catalogoInversores = merged.catalogoInversores.map((item) => item.id === 'inverter-huawei-hibrido-6kw'
+      ? { ...item, costoNetoClp: 663_000, precioVentaClp: 819_000, margen: 0.19 }
+      : item);
+    if (merged.panelActivoId === 'panel-longi-620-w') merged.panelActivoId = 'panel-ulica-620-w';
+    if (merged.inversorActivoId === 'inverter-sigen-on-grid-web') merged.inversorActivoId = 'inverter-huawei-hibrido-6kw';
+  }
   const activePanel = merged.catalogoPaneles.find((item) => item.id === merged.panelActivoId && item.estado === 'active')
     ?? merged.catalogoPaneles.find((item) => item.estado === 'active');
   const activeInverter = merged.catalogoInversores.find((item) => item.id === merged.inversorActivoId && item.estado === 'active')
@@ -495,6 +529,37 @@ export function getInversorActivo(config: ConfigCotizador): InverterCatalogItem 
   return config.catalogoInversores.find((item) => item.id === config.inversorActivoId && item.estado === 'active')
     ?? config.catalogoInversores.find((item) => item.estado === 'active')
     ?? DEFAULT_INVERTERS[0];
+}
+
+/**
+ * Selecciona un SKU real para la potencia y las fases del sistema. El equipo
+ * predeterminado conserva prioridad cuando cumple; de lo contrario se usa el
+ * activo disponible con menor holgura DC. Nunca se inventa una potencia para
+ * el nombre/costo de otro inversor.
+ */
+export function getInversorParaSistema(
+  config: ConfigCotizador,
+  capacidadKwp: number,
+  fases: 1 | 3,
+): InverterCatalogItem {
+  const active = config.catalogoInversores.filter((item) => (
+    item.estado === 'active'
+    && item.stock
+    && item.linea.toLocaleLowerCase('es-CL').includes('on-grid')
+    && item.fases === fases
+  ));
+  const eligible = active.filter((item) => item.potenciaDcKw >= capacidadKwp);
+  const preferred = eligible.find((item) => item.id === config.inversorActivoId);
+  if (preferred) return preferred;
+  const ranked = [...eligible].sort((left, right) => (
+    left.potenciaDcKw - right.potenciaDcKw
+    || left.prioridad - right.prioridad
+    || left.costoNetoClp - right.costoNetoClp
+  ));
+  return ranked[0]
+    ?? active.find((item) => item.id === config.inversorActivoId)
+    ?? active.sort((left, right) => right.potenciaDcKw - left.potenciaDcKw)[0]
+    ?? getInversorActivo(config);
 }
 
 export function normalizeGeneration(value: unknown): GeneracionPorZona {

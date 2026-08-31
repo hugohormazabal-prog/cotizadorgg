@@ -87,7 +87,7 @@ function apiHeaders(username: string, password: string): Record<string, string> 
   return {};
 }
 
-function FieldShell({ label, htmlFor, hint, error, children }: {
+function FieldShell({ label, htmlFor, hint, reference, error, children }: {
   label: string;
   htmlFor?: string;
   hint?: string;
@@ -101,6 +101,7 @@ function FieldShell({ label, htmlFor, hint, error, children }: {
         {htmlFor
           ? <label htmlFor={htmlFor} className="text-sm font-semibold text-slate-800">{label}</label>
           : <span className="text-sm font-semibold text-slate-800">{label}</span>}
+        {reference && <span id={htmlFor ? `${htmlFor}-reference` : undefined} className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-500">{reference}</span>}
       </div>
       {children}
       {error
@@ -135,18 +136,21 @@ function NumberField({ id, label, value, onChange, unit, hint, reference, min, m
         <input
           id={id}
           aria-invalid={issue?.severity === 'error' || undefined}
-          aria-describedby={issue || hint ? `${id}-help` : undefined}
+          aria-describedby={[
+            reference ? `${id}-reference` : '',
+            issue || hint ? `${id}-help` : '',
+          ].filter(Boolean).join(' ') || undefined}
           type="number"
           inputMode={integer ? 'numeric' : 'decimal'}
           value={displayed}
           min={percent && min != null ? min * 100 : min}
           max={percent && max != null ? max * 100 : max}
-          step="any"
+          step={integer ? 1 : 'any'}
           onChange={(event) => {
             const next = event.target.value === '' ? Number.NaN : Number(event.target.value);
             onChange(percent ? next / 100 : next);
           }}
-          className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 pr-20 text-base text-slate-950 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+          className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 pr-32 text-base text-slate-950 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
         />
         {(unit || percent) && (
           <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-slate-500">
@@ -266,7 +270,7 @@ export default function MantenedorPage() {
   }, []);
 
   const issues = useMemo(() => validateConfig(config, genZona), [config, genZona]);
-  const issueFor = (field: keyof ConfigCotizador) => issues.find((issue) => issue.field === field);
+  const issueFor = (field: string) => issues.find((issue) => issue.field === field);
   const currentFingerprint = useMemo(() => fingerprint(config, genZona), [config, genZona]);
   const dirty = currentFingerprint !== savedFingerprint;
   const changesVsPublished = useMemo(() => fieldChangeCount(
@@ -545,9 +549,9 @@ export default function MantenedorPage() {
               <EquipmentCatalogManager config={config} onChange={setConfig} />
               <SectionCard title="Reglas comerciales del precio" description="Las partidas escalables se administran en Variables por kWp. Aquí se mantienen el margen, IVA y redondeo final.">
                 <div className="grid gap-5 md:grid-cols-2">
-                  <NumberField id="margin" label="Margen objetivo" value={config.margen} onChange={(value) => patch('margen', value)} percent min={0} max={0.8} issue={issueFor('margen')} />
-                  <NumberField id="iva-sale" label="IVA de venta" value={config.ivaVenta - 1} onChange={(value) => patch('ivaVenta', 1 + value)} percent min={0} max={1} issue={issueFor('ivaVenta')} />
-                  <NumberField id="round-price" label="Redondeo hacia arriba" value={config.redondeoPrecioClp} onChange={(value) => patch('redondeoPrecioClp', value)} unit="CLP" integer issue={issueFor('redondeoPrecioClp')} />
+                  <NumberField id="margin" label="Margen efectivo" value={config.margen} onChange={(value) => patch('margen', value)} percent min={0} max={0.8} reference="CUBICADOR!L6" hint="El objetivo MAIN!C26 es 19%; los precios unitarios redondeados dejan 19,4089% efectivo en el caso patrón." issue={issueFor('margen')} />
+                  <NumberField id="iva-sale" label="IVA de venta" value={config.ivaVenta - 1} onChange={(value) => patch('ivaVenta', 1 + value)} percent min={0} max={1} reference="COT_ONGRID!G293" issue={issueFor('ivaVenta')} />
+                  <NumberField id="round-price" label="Redondeo hacia arriba" value={config.redondeoPrecioClp} onChange={(value) => patch('redondeoPrecioClp', value)} unit="CLP" integer reference="COT_ONGRID!A77" issue={issueFor('redondeoPrecioClp')} />
                 </div>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <Metric label="Equipos seleccionados" value={formatCLP((preview?.desgloseCostos.panelesNeto ?? 0) + (preview?.desgloseCostos.inversorNeto ?? 0))} detail="Paneles + inversor del caso" tone="sky" />
@@ -563,10 +567,10 @@ export default function MantenedorPage() {
             <div className="space-y-5">
               <SectionCard title="Tarjetas" description="Configura el recargo total y el número de cuotas de cada medio de pago.">
                 <div className="grid gap-5 md:grid-cols-2">
-                  <NumberField id="mp-factor" label="Recargo Mercado Pago" value={config.factorMP - 1} onChange={(value) => patch('factorMP', 1 + value)} percent min={0} max={4} issue={issueFor('factorMP')} />
-                  <NumberField id="mp-quota" label="Cuotas Mercado Pago" value={config.cuotasMP} onChange={(value) => patch('cuotasMP', value)} unit="meses" integer reference="COT_ONGRID" issue={issueFor('cuotasMP')} />
-                  <NumberField id="san-factor" label="Recargo Santander" value={config.factorSantander - 1} onChange={(value) => patch('factorSantander', 1 + value)} percent min={0} max={4} issue={issueFor('factorSantander')} />
-                  <NumberField id="san-quota" label="Cuotas Santander" value={config.cuotasSantander} onChange={(value) => patch('cuotasSantander', value)} unit="meses" integer reference="FC SANTANDER" issue={issueFor('cuotasSantander')} />
+                  <NumberField id="mp-factor" label="Recargo Mercado Pago" value={config.factorMP - 1} onChange={(value) => patch('factorMP', 1 + value)} percent min={0} max={4} reference="COT_GRANEL!D153" issue={issueFor('factorMP')} />
+                  <NumberField id="mp-quota" label="Cuotas Mercado Pago" value={config.cuotasMP} onChange={(value) => patch('cuotasMP', value)} unit="meses" integer reference="COT_GRANEL!D153" issue={issueFor('cuotasMP')} />
+                  <NumberField id="san-factor" label="Recargo Santander" value={config.factorSantander - 1} onChange={(value) => patch('factorSantander', 1 + value)} percent min={0} max={4} reference="COT_ONGRID!E77" issue={issueFor('factorSantander')} />
+                  <NumberField id="san-quota" label="Cuotas Santander" value={config.cuotasSantander} onChange={(value) => patch('cuotasSantander', value)} unit="meses" integer reference="COT_ONGRID!E76:E77" issue={issueFor('cuotasSantander')} />
                 </div>
               </SectionCard>
               <SectionCard title="Crédito verde ALZA" description="Configura la tasa, el plazo, los gastos y las garantías del financiamiento.">
@@ -594,13 +598,35 @@ export default function MantenedorPage() {
                 <NumberField id="degradation" label="Degradación anual" value={config.degradacionPaneles} onChange={(value) => patch('degradacionPaneles', value)} percent reference="FC*!C6" issue={issueFor('degradacionPaneles')} />
                 <NumberField id="period" label="Horizonte de evaluación" value={config.periodoEvaluacionAnios} onChange={(value) => patch('periodoEvaluacionAnios', value)} unit="años" integer reference="FC*!B38/B41" issue={issueFor('periodoEvaluacionAnios')} />
                 <NumberField id="discount" label="Tasa de descuento" value={config.tasaDescuentoAnual} onChange={(value) => patch('tasaDescuentoAnual', value)} percent reference="FC*!B39/B42" issue={issueFor('tasaDescuentoAnual')} />
-                <NumberField id="replacement-year-1" label="Primera reposición" value={config.anioReposicion1} onChange={(value) => patch('anioReposicion1', value)} unit="año" integer issue={issueFor('anioReposicion1')} />
+                <NumberField id="replacement-year-1" label="Primera reposición" value={config.anioReposicion1} onChange={(value) => patch('anioReposicion1', value)} unit="año" integer reference="FC Capital Propio!O30" issue={issueFor('anioReposicion1')} />
                 <NumberField id="replacement-1" label="Costo primera reposición" value={config.inversionRespuesto10} onChange={(value) => patch('inversionRespuesto10', value)} unit="CLP" reference="FC Capital Propio!O30" issue={issueFor('inversionRespuesto10')} />
-                <NumberField id="replacement-year-2" label="Segunda reposición" value={config.anioReposicion2} onChange={(value) => patch('anioReposicion2', value)} unit="año" integer issue={issueFor('anioReposicion2')} />
+                <NumberField id="replacement-year-2" label="Segunda reposición" value={config.anioReposicion2} onChange={(value) => patch('anioReposicion2', value)} unit="año" integer reference="FC Capital Propio!Y30" issue={issueFor('anioReposicion2')} />
                 <NumberField id="replacement-2" label="Costo segunda reposición" value={config.inversionRespuesto22} onChange={(value) => patch('inversionRespuesto22', value)} unit="CLP" reference="FC Capital Propio!Y30" issue={issueFor('inversionRespuesto22')} />
                 <NumberField id="warranty-install" label="Garantía instalación" value={config.garantiaInstalacion} onChange={(value) => patch('garantiaInstalacion', value)} unit="años" integer reference="FINBACK!B62" issue={issueFor('garantiaInstalacion')} />
                 <NumberField id="co2" label="Factor mitigación CO₂" value={config.co2FactorKgPerKwh} onChange={(value) => patch('co2FactorKgPerKwh', value)} unit="kg/kWh" reference="FINBACK!B49" issue={issueFor('co2FactorKgPerKwh')} />
               </div>
+              <details className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <summary className="cursor-pointer text-sm font-bold text-slate-900">Serie MPC anual · FC*!E4:AC4</summary>
+                <p className="mt-2 text-xs leading-relaxed text-slate-500">La variación anual de esta serie se suma al precio de energía después de aplicar IPC, igual que en las hojas de flujo del Excel.</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+                  {Array.from({ length: config.periodoEvaluacionAnios }, (_, index) => (
+                    <NumberField
+                      key={index}
+                      id={`mpc-${index + 1}`}
+                      label={`Año ${index + 1}`}
+                      value={config.mpcAnualClpKwh[index] ?? 0}
+                      onChange={(value) => setConfig((previous) => {
+                        const series = [...previous.mpcAnualClpKwh];
+                        series[index] = value;
+                        return { ...previous, mpcAnualClpKwh: series };
+                      })}
+                      unit="CLP/kWh"
+                      reference="FC*!E4:AC4"
+                      issue={issueFor(`mpcAnualClpKwh.${index}`)}
+                    />
+                  ))}
+                </div>
+              </details>
               {preview && (
                 <div className="mt-6 border-t border-slate-200 pt-5" aria-label="Proyección calculada">
                   <div className="mb-3">
@@ -644,7 +670,7 @@ export default function MantenedorPage() {
               <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {genZona[selectedRegion].map((value, month) => {
                   const issue = issues.find((item) => item.field === `genZona.${selectedRegion}.${month}`);
-                  return <NumberField key={MONTHS[month]} id={`generation-${month}`} label={MONTHS[month]} value={value} onChange={(next) => setGenZona((previous) => { const row = [...previous[selectedRegion]] as GeneracionMensual; row[month] = next; return { ...previous, [selectedRegion]: row }; })} unit="kWh/kWp" issue={issue} />;
+                  return <NumberField key={MONTHS[month]} id={`generation-${month}`} label={MONTHS[month]} value={value} onChange={(next) => setGenZona((previous) => { const row = [...previous[selectedRegion]] as GeneracionMensual; row[month] = next; return { ...previous, [selectedRegion]: row }; })} unit="kWh/kWp" reference="GEN Zona!B:O" issue={issue} />;
                 })}
               </div>
               <div className="mt-5"><Metric label="Total anual" value={`${genZona[selectedRegion].reduce((sum, value) => sum + value, 0).toLocaleString('es-CL')} kWh/kWp`} detail="Suma automática de los 12 meses" tone="sky" /></div>

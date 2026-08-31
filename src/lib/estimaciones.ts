@@ -10,12 +10,11 @@ import {
   CONFIG_DEFAULT,
   GENERACION_POR_ZONA,
   getFactorGeneracion,
-  getInversorActivo,
+  getInversorParaSistema,
   getPanelActivo,
   precioInyeccionKwhClp,
   redondearHaciaArriba,
   calcularCreditoAlza,
-  costoPartidasPorCategoria,
 } from './config';
 
 /** Número de fases de la instalación. 1 = monofásico (casa/depto), 3 = trifásico (empresa). */
@@ -127,6 +126,8 @@ export interface CotizacionCompleta {
     ahorroAcumuladoClp: number;
     costoEnergiaSinProyectoClp: number;
     vanClp: number;
+    ahorroAnualClp: number[];
+    ahorroAcumuladoPorAnioClp: number[];
   };
 
   // Opciones de financiamiento
@@ -191,7 +192,6 @@ export function calcularCotizacion(params: {
   const genZona = params.generacionPorZona ?? GENERACION_POR_ZONA;
   const precioIny = precioInyeccionKwhClp(cfg);
   const panelActivo = getPanelActivo(cfg);
-  const inversorActivo = getInversorActivo(cfg);
 
   // 1. Calcular consumo mensual en kWh (aplica proyección del Excel: INPUT!B18)
   const consumoKwhMensual =
@@ -227,6 +227,7 @@ export function calcularCotizacion(params: {
   }
 
   const capacidadKwp = numeroPaneles * panelKwp;
+  const inversorActivo = getInversorParaSistema(cfg, capacidadKwp, fases);
 
   const generacionMensualKwh = genZona[region].map((month) => month * capacidadKwp);
   const autoconsumoMensualKwh = generacionMensualKwh.map((generation) =>
@@ -248,7 +249,7 @@ export function calcularCotizacion(params: {
     potenciaPanelW: panelActivo.potenciaW,
     marcaPanel: panelActivo.nombre,
     marcaInversor: inversorActivo.nombre,
-    potenciaInversorKw: Math.max(inversorActivo.potenciaAcKw, Math.ceil(capacidadKwp)),
+    potenciaInversorKw: inversorActivo.potenciaAcKw,
     generacionAnualKwh: Math.round(generacionAnualKwh),
     generacionMensualPromKwh: Math.round(generacionMensualPromKwh),
     autoconsumoAnualKwh: Math.round(autoconsumoAnualKwh),
@@ -275,15 +276,36 @@ export function calcularCotizacion(params: {
   // 4. Precio del proyecto
   const panelesNeto = numeroPaneles * panelActivo.costoNetoClp;
   const inversorNeto = inversorActivo.costoNetoClp;
+  const canalizacionActual = Object.entries(cfg.variablesVinculantesKwp)
+    .filter(([key]) => key.startsWith('canalizacion') && key.endsWith('PorKwp'))
+    .reduce((total, [, value]) => total + Number(value), 0);
+  const canalizacionBase = Object.entries(CONFIG_DEFAULT.variablesVinculantesKwp)
+    .filter(([key]) => key.startsWith('canalizacion') && key.endsWith('PorKwp'))
+    .reduce((total, [, value]) => total + Number(value), 0);
+  const factorVinculante = (id: string): number => {
+    if (id === 'estructura') {
+      return cfg.variablesVinculantesKwp.mesasPorKwp / CONFIG_DEFAULT.variablesVinculantesKwp.mesasPorKwp;
+    }
+    if (id === 'cables-canalizacion') return canalizacionActual / canalizacionBase;
+    if (id === 'tableros-protecciones') {
+      return cfg.variablesVinculantesKwp.proteccionGeneralAPorKwp
+        / CONFIG_DEFAULT.variablesVinculantesKwp.proteccionGeneralAPorKwp;
+    }
+    return 1;
+  };
   const partidasKwp = cfg.partidasCostoKwp.filter((partida) => partida.activa).map((partida) => ({
     id: partida.id,
     nombre: partida.nombre,
     categoria: partida.categoria,
-    costoNetoClpPorKwp: partida.costoNetoClpPorKwp,
-    costoNeto: capacidadKwp * partida.costoNetoClpPorKwp,
+    costoNetoClpPorKwp: partida.costoNetoClpPorKwp * factorVinculante(partida.id),
+    costoNeto: capacidadKwp * partida.costoNetoClpPorKwp * factorVinculante(partida.id),
   }));
-  const materialesGeneralesNeto = capacidadKwp * costoPartidasPorCategoria(cfg.partidasCostoKwp, 'materiales');
-  const serviciosNeto = capacidadKwp * costoPartidasPorCategoria(cfg.partidasCostoKwp, 'servicios');
+  const materialesGeneralesNeto = partidasKwp
+    .filter((partida) => partida.categoria === 'materiales')
+    .reduce((total, partida) => total + partida.costoNeto, 0);
+  const serviciosNeto = partidasKwp
+    .filter((partida) => partida.categoria === 'servicios')
+    .reduce((total, partida) => total + partida.costoNeto, 0);
   const totalNeto = panelesNeto + inversorNeto + materialesGeneralesNeto + serviciosNeto;
   const precioSinRedondeo = cfg.margen < 1
     ? (totalNeto / (1 - cfg.margen)) * cfg.ivaVenta
@@ -306,9 +328,9 @@ export function calcularCotizacion(params: {
   const variablesVinculantes = calcularVariablesVinculantes(capacidadKwp, cfg, fases);
 
   // 5. Opciones de financiamiento
-  const totalMP = Math.round(precioProyectoClp * cfg.factorMP);
+  const totalMP = redondearHaciaArriba(precioProyectoClp * cfg.factorMP, cfg.redondeoPrecioClp);
   const cuotaMP = Math.round(totalMP / cfg.cuotasMP);
-  const totalSantander = Math.round(precioProyectoClp * cfg.factorSantander);
+  const totalSantander = redondearHaciaArriba(precioProyectoClp * cfg.factorSantander, cfg.redondeoPrecioClp);
   const cuotaSantander = Math.round(totalSantander / cfg.cuotasSantander);
   const creditoAlza = calcularCreditoAlza(precioProyectoClp, cfg);
   const cuotaALZA = Math.round(creditoAlza.cuotaMensual);
@@ -374,27 +396,36 @@ export function calcularCotizacion(params: {
   let ahorroAcumuladoClp = 0;
   let costoEnergiaSinProyectoClp = 0;
   let vanClp = -precioProyectoClp;
+  const ahorroAnualClp: number[] = [];
+  const ahorroAcumuladoPorAnioClp: number[] = [];
+  let precioConsumoProyectado = cfg.precioKwhClp;
+  let precioInyeccionProyectado = precioIny;
   for (let year = 1; year <= cfg.periodoEvaluacionAnios; year += 1) {
-    const inflation = Math.pow(cfg.ipcAnual, year - 1);
+    if (year > 1) {
+      const mpcActual = cfg.mpcAnualClpKwh[year - 1] ?? cfg.mpcAnualClpKwh.at(-1) ?? 0;
+      const mpcAnterior = cfg.mpcAnualClpKwh[year - 2] ?? mpcActual;
+      precioConsumoProyectado = precioConsumoProyectado * cfg.ipcAnual + (mpcActual - mpcAnterior);
+      precioInyeccionProyectado *= cfg.ipcAnual;
+    }
     const degradation = Math.max(0, 1 - cfg.degradacionPaneles * (year - 1));
-    const generation = generacionMensualKwh.map((month) => month * degradation);
-    const selfConsumption = generation.reduce(
-      (sum, month) => sum + Math.min(month, consumoKwhMensual * cfg.limiteAutoconsumo),
-      0,
-    );
-    const injection = generation.reduce((sum, month) => sum + month, 0) - selfConsumption;
+    const generation = generacionAnualKwh * degradation;
+    const selfConsumption = Math.min(generation, autoconsumoAnualKwh);
+    const injection = Math.max(0, generation - selfConsumption);
     const savings = (
-      selfConsumption * cfg.precioKwhClp
-      + injection * precioIny
-    ) * inflation;
+      selfConsumption * precioConsumoProyectado
+      + injection * precioInyeccionProyectado
+    );
     const replacement = year === cfg.anioReposicion1
       ? cfg.inversionRespuesto10
       : year === cfg.anioReposicion2
         ? cfg.inversionRespuesto22
         : 0;
     ahorroAcumuladoClp += savings - replacement;
-    costoEnergiaSinProyectoClp += gastoCuentaClpMensual * 12 * inflation;
-    vanClp += (savings - replacement) / Math.pow(1 + cfg.tasaDescuentoAnual, year);
+    ahorroAnualClp.push(Math.round(savings - replacement));
+    ahorroAcumuladoPorAnioClp.push(Math.round(ahorroAcumuladoClp));
+    costoEnergiaSinProyectoClp += consumoKwhAnual * precioConsumoProyectado;
+    // Las hojas FC descuentan el primer año con exponente cero (periodo - 1).
+    vanClp += (savings - replacement) / Math.pow(1 + cfg.tasaDescuentoAnual, year - 1);
   }
 
   return {
@@ -404,7 +435,7 @@ export function calcularCotizacion(params: {
     sistema,
     ahorro,
     precioProyectoClp,
-    paybackAnios: Math.round(paybackAnios * 10) / 10,
+    paybackAnios: Math.round(paybackAnios * 10_000) / 10_000,
     paybackMeses,
     precioPorKwp,
     desgloseCostos,
@@ -414,6 +445,8 @@ export function calcularCotizacion(params: {
       ahorroAcumuladoClp: Math.round(ahorroAcumuladoClp),
       costoEnergiaSinProyectoClp: Math.round(costoEnergiaSinProyectoClp),
       vanClp: Math.round(vanClp),
+      ahorroAnualClp,
+      ahorroAcumuladoPorAnioClp,
     },
     opcionesFinanciamiento,
     garantias,

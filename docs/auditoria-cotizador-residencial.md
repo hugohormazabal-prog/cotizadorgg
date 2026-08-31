@@ -1,136 +1,78 @@
-# Auditoría del modelo “Cotizador Residencial.xlsm”
+# Auditoría integral del cotizador residencial
 
-Fecha de revisión: 31 de agosto de 2026.
+Fecha: 31 de agosto de 2026.
 
-## Alcance y protección del original
+## Alcance
 
-- Libro analizado en modo lectura: `/Users/hh/Downloads/Cotizador Residencial (2).xlsm`.
-- Se revisaron las 39 hojas del archivo entregado, incluida la tabla vinculante
-  `MAIN!B43:C54` y su cadena `MAIN → INPUT → COTBACK`.
-- El libro original no fue modificado.
-- La hoja `PPT` y el documento comercial derivado de la presentación se consideran protegidos. El mantenedor no cambia su diseño ni su contenido.
+- Fuente revisada en modo lectura: `/Users/hh/Downloads/Cotizador Residencial (2).xlsm`.
+- Se inventariaron las 39 hojas y se trazaron las cadenas activas `MAIN → INPUT → COTBACK/CUBICADOR → COT_ONGRID/FINBACK → FC/CREDITOALZA`.
+- El XLSM original y su VBA no fueron modificados.
+- Tres revisiones independientes contrastaron fórmulas, motor web y cobertura del mantenedor.
 
-## Caso patrón de regresión
+## Caso patrón automatizado
 
-Caso residencial monofásico, Región Metropolitana, cuenta de $70.000/mes y tarifa de $250/kWh:
+Caso residencial monofásico, Región Metropolitana y cuenta de $120.000/mes:
 
-| Resultado | Valor auditado |
-|---|---:|
-| Paneles | 6 × 620 W |
-| Capacidad | 3,72 kWp |
-| Generación anual | 5.327,04 kWh |
-| Autoconsumo anual | 1.680 kWh |
-| Inyección anual | 3.647,04 kWh |
-| Ahorro año 1 | $878.750 |
-| Precio proyecto | $3.919.000 |
-| Payback simple | 4,4597 años |
-| Crédito ALZA | 300 meses, 3 de gracia |
-| Cuota ALZA para el caso web de $3.919.000 | $40.816 / 0,9993 UF |
+| Resultado | Excel | Motor web v7 |
+|---|---:|---:|
+| Paneles / potencia | 10 × 620 W / 6,2 kWp | 10 × 620 W / 6,2 kWp |
+| Inversor | Huawei híbrido 6 kW | Huawei híbrido 6 kW |
+| Generación anual | 8.878,4 kWh | 8.878 kWh mostrados |
+| Autoconsumo / inyección | 2.880 / 5.998,4 kWh | 2.880 / 5.998 kWh mostrados |
+| Ahorro año 1 | $1.474.520,30 | $1.474.520 |
+| Precio proyecto | $5.179.000 | $5.179.000 |
+| Payback simple | 3,5123 años | 3,5123 años |
+| Mercado Pago | $5.893.000 / $491.083 × 12 | $5.893.000 / $491.083 × 12 |
+| Santander | $127.645,83 × 48 | $127.646 × 48 |
+| ALZA | $7.944.398,85 / $53.026,07 / 1,29823 UF | mismos valores antes del redondeo visible |
+| Ahorro neto proyectado | $47.524.830 | $47.524.830 |
+| VAN corregido a 25 años | $42.345.830 | $42.345.830 |
 
-Este caso se usa como prueba dorada del motor web.
+La regresión se ejecuta con `npm run test:integrity`.
 
-## Corrección aplicada: kWp como escala única
+## Correcciones del motor
 
-La tabla vinculante ya no se replica como cantidades fijas ni mediante fórmulas
-dependientes del número de paneles. El motor web calcula desde la capacidad
-instalada los siguientes coeficientes editables:
+1. La selección del inversor usa un SKU activo, con stock, línea On-Grid, fases compatibles y capacidad DC suficiente. Nombre, potencia y costo provienen siempre del mismo equipo.
+2. Las partidas de estructura, canalización y protecciones se vinculan a sus coeficientes técnicos. Cambiar metros, mesas o amperes modifica cantidad, costo y precio; el caso base conserva el valor reconciliado.
+3. Los costos por kWp se recalibraron desde los grupos activos de `CUBICADOR`, separando equipos físicos de estructura, comunicación, cables, tableros y servicios.
+4. Mercado Pago usa sus comisiones de 6,99% y 3,19%, ambas con IVA; Santander mantiene 13% con IVA. Ambos totales se redondean hacia arriba a miles.
+5. ALZA conserva la fórmula exacta de garantía, gastos, fee, gracia, PMT y conversión a UF.
+6. La proyección usa degradación lineal, IPC, variación MPC anual, reposiciones en periodos 11 y 21, y descuento desde el periodo cero.
+7. El PDF y el gráfico consumen la proyección real del motor; ya no multiplican ahorro año 1 por 25 ni vuelven a inventar marca/potencia de inversor.
+8. Las escrituras del mantenedor se validan antes de normalizar, evitando reemplazar silenciosamente datos dañados por valores iniciales.
 
-| Variable | Unidad administrada | Referencia |
-|---|---:|---|
-| Canalización PAN–INV exterior/subterránea | m/kWp | `MAIN!C44:C45` |
-| Canalización INV–TAB exterior/subterránea | m/kWp | `MAIN!C46:C47` |
-| Canalización TAB–PC exterior/subterránea/aérea | m/kWp | `MAIN!C48:C50` |
-| Protección general | A/kWp | `MAIN!C51` |
-| Número de mesas | mesas/kWp | `MAIN!C52` |
+## Configuración expuesta
 
-El redondeo de metros y amperes también es administrable. El número de fases y
-el tipo de fijación permanecen como categorías técnicas editables, porque no son
-magnitudes que deban multiplicarse por kWp.
+- Energía: tarifa, precio de nudo, IVA de inyección, autoconsumo y proyección de consumo.
+- Dimensionamiento: catálogos de paneles e inversores, selección preferida, mínimo y tope monofásico.
+- Variables por kWp: siete canalizaciones, protección, mesas, reglas de redondeo, fases y fijación.
+- Precio: ocho partidas netas por kWp, margen efectivo, IVA y redondeo.
+- Financiamiento: Mercado Pago, Santander y todos los parámetros de ALZA.
+- Proyección: IPC, degradación, horizonte, descuento, 25 valores MPC y dos reposiciones.
+- Garantías e impacto: garantía por equipo, instalación y CO₂.
+- Generación: 14 regiones × 12 meses.
 
-El costo escalable se reemplazó por ocho partidas netas por kWp: estructura,
-comunicación, cables/canalización, tableros/protecciones, gestión, instalación,
-ingeniería y puesta en marcha/logística. La suma predeterminada conserva los
-$159.314 de materiales y $301.994 de servicios por kWp del motor anterior.
+Cada input principal muestra ahora su hoja/celda o declara que es una regla web. Los campos duplicados de garantía global se eliminaron del contrato; la fuente canónica es el equipo seleccionado.
 
-## Variables gobernadas por el mantenedor
+## Transformación solicitada a kWp
 
-- Energía: tarifa de consumo, precio de nudo, IVA de inyección, límite de autoconsumo y proyección de consumo.
-- Dimensionamiento: panel activo, potencia del panel, mínimo y tope monofásico, inversor activo y potencia mínima.
-- Precio: partidas netas detalladas por kWp, equipos de catálogo, margen, IVA y regla de redondeo.
-- Variables vinculantes: canalizaciones, protección, mesas, redondeos, fases y fijación.
-- Financiamiento: factores y cuotas de Mercado Pago y Santander; tasa, gracia, plazo, fee, garantías, cantidad y costo unitario de gastos, pie y UF de ALZA.
-- Proyección: IPC, degradación, horizonte, descuento y dos reposiciones.
-- Garantías e impacto: paneles, inversor, instalación y factor CO₂.
-- Generación: matriz mensual completa de 12 meses × 14 regiones.
+El Excel usa `MAIN!C44 = 2 × número de paneles` y mantiene `C45:C54` como entradas manuales de cada proyecto. Por requerimiento del cliente, el motor web transforma las magnitudes repetibles en coeficientes globales por kWp. Fases y fijación siguen siendo categorías técnicas.
 
-Los valores derivados —factor de generación, precio de venta por kWp y cuota ALZA— son de solo lectura para impedir combinaciones incoherentes.
+La vinculación comercial se resuelve así:
 
-## Cobertura por hoja
+- mesas/kWp escala la partida de estructura;
+- suma de canalizaciones/kWp escala cables y canalización;
+- amperes/kWp escala tableros y protecciones;
+- fases intervienen en la selección del inversor compatible.
 
-| Hoja | Tratamiento en la web |
-|---|---|
-| MAIN, INPUT | Entradas y reglas directas |
-| COT_ONGRID | Resultado residencial derivado |
-| PPT | Protegida; no se edita |
-| IMAGEN | Activos protegidos |
-| COTBACK, CUBICADOR | Reglas consolidadas en costos y dimensionamiento |
-| FC Capital Propio, FC MP, FC SANTANDER, FC ALZA | Proyección y financiamiento |
-| CREDITOALZA | Fórmula completa de crédito y PMT |
-| FINBACK | Generación, autoconsumo, inyección y ahorro |
-| GEN Zona | Matriz regional editable completa |
-| PAN, INV | Equipos activos y metadatos del resultado |
-| EST, TAB, CABLE, CAN, SERV, SERVBACK, COM, CANBACK | Familias consolidadas en el costo residencial |
-| COT_GRANEL, COTBACKGRANEL, BATGRANEL, COMPBATGRANEL, CANBACKGRANEL, CABLEGRANEL | Identificadas; fuera del formulario residencial actual |
-| COT_OFFGRID, REG | Identificadas; fuera del formulario residencial actual |
-| BAT, COMPBAT | Identificadas como catálogos de almacenamiento no usados por el flujo on-grid actual |
-| BOMBACALOR, CARGADOREV, AIREAC | Opcionales de referencia, no seleccionados por el formulario actual |
-| Precios Competencia | Referencia comercial, no participa en la fórmula |
+## Defectos heredados excluidos deliberadamente
 
-La pantalla “Cobertura del Excel” presenta individualmente las 38 hojas para hacer visible cualquier cambio futuro de alcance.
+- `FC Capital Propio!B45`, `FC MP!B45`, `FC SANTANDER!B45` y `FC ALZA!B48` contienen `#REF!`.
+- La TIR de ALZA produce `#NUM!` porque el flujo no tiene cambio de signo.
+- El “VAN 25 años” del libro apunta al acumulado del periodo 15 y no aplica VNA; el motor calcula los 25 años reales.
+- `FINBACK!B58/B67` rotula cantidad de inversores, pero devuelve la tarifa de $250.
+- El flujo residencial de Mercado Pago reutiliza la cuota Santander; se tomó la fórmula MP válida del flujo granel.
+- Persisten nombres definidos y referencias externas rotas, además de un error en `COTBACKGRANEL!D332` y la validación `COT_GRANEL!L25`.
+- Los `#VALUE!` de `IMAGEN` corresponden a imágenes en celda no interpretadas por el lector y no se incorporaron al motor.
 
-## Catálogos inventariados
-
-- 27 inversores, 12 baterías, 28 componentes de batería y 15 reguladores.
-- 7 paneles, 20 estructuras, 48 tableros y 28 cables.
-- 47 ítems de canalización con cuatro diámetros.
-- 10 servicios y matriz regional de 20 × 14.
-- 20 ítems de comunicación, 9 bombas de calor, 1 cargador EV y 8 equipos de climatización.
-
-Los catálogos que no son elegibles en el formulario residencial se mantienen fuera del motor para evitar publicar campos sin consumidor.
-
-## Defectos heredados que no se copiaron
-
-- 42 nombres contienen `#REF!` y 18 nombres conservan referencias heredadas `[0]`/`[1]`.
-- Existen dos vínculos a libros externos; ocho celdas activas dependen de `[2]FINBACKEPC`.
-- Las cuatro hojas de flujo contienen referencias CAPEX rotas.
-- `COTBACKGRANEL!D332` usa `INDEX(#REF!)` y `COT_GRANEL!L25` tiene validación `#REF!`.
-- `IMAGEN!A1:A13` devuelve `#VALUE!` y propaga errores visuales.
-- `FINBACK!B58/B67` están rotuladas como cantidad de inversores, pero devuelven una tarifa de 250.
-- Tres macros apuntan a hojas inexistentes; el VBA útil se limita a impresión.
-
-Además, la revisión del archivo `(2)` detectó y evitó reproducir estas
-inconsistencias activas:
-
-- `MAIN!C44` equivalía a dos veces la cantidad de paneles, no a una regla por
-  potencia instalada.
-- Las fórmulas de tierra y canalización omitían tramos o aplicaban dobles
-  multiplicadores en TAB–PC.
-- `MAIN!C53` tenía una validación que apuntaba a un rango vacío y `C54` no tenía
-  validación.
-- Los totales publicados omitían líneas activas de alero, grapa y rotulación.
-- Existían divergencias entre la cotización, el contrato y la PPT para extras
-  de canalización.
-
-La corrección se implementó en el motor web y el mantenedor; el XLSM entregado
-se conserva intacto como fuente auditada para no perder su proyecto VBA.
-
-Por estas razones el motor se reconstruyó desde reglas válidas y resultados patrón, no mediante una copia ciega de fórmulas dañadas.
-
-## Controles de operación
-
-- Configuración central con versiones `draft`, `published` y `archived`.
-- Publicación atómica y control de concurrencia por versión.
-- Validaciones de rango, enteros, coherencia cruzada, NaN/Infinity y matriz regional.
-- Historial, comentario de cambio, importación/exportación JSON y restauración confirmada.
-- Snapshot de configuración y versión guardado en cada cotización.
-- Clave de acceso opcional aplicada en servidor; preparada para reemplazarse por autenticación y roles.
+Estos defectos permanecen documentados en la fuente, pero no se copiaron al producto web.

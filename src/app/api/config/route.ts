@@ -8,7 +8,7 @@ import {
   normalizeGeneration,
   type ConfigBundle,
 } from '@/lib/config';
-import { hasErrors, validateConfig } from '@/lib/configValidation';
+import { hasErrors, validateConfig, validateRawConfigPayload } from '@/lib/configValidation';
 
 export const dynamic = 'force-dynamic';
 
@@ -140,6 +140,10 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ error: 'Solicitud inválida.' }, { status: 400 });
 
+  const rawIssues = validateRawConfigPayload(body.config, body.genZona);
+  if (hasErrors(rawIssues)) {
+    return NextResponse.json({ error: 'La configuración enviada está incompleta o dañada.', issues: rawIssues }, { status: 422 });
+  }
   const config = normalizeConfig(body.config);
   const genZona = normalizeGeneration(body.genZona);
   const issues = validateConfig(config, genZona);
