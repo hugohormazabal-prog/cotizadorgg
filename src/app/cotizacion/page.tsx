@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { QuotePdfDocument } from '@/components/QuotePdfDocument';
 import { calcularCotizacion } from '@/lib/estimaciones';
 import { fasesPorTipoPropiedad, requiereCotizacionDetallada } from '@/lib/config';
@@ -74,7 +75,7 @@ export default function CotizacionPage() {
         <div className="max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
           <h1 className="text-lg font-bold text-emerald-900">Cotización a detalle</h1>
           <p className="mt-3 text-sm text-slate-600">Los proyectos de empresa y departamento se cotizan a medida. Un especialista de GG Electrics preparará tu propuesta técnica y comercial.</p>
-          <a href="/" className="mt-5 inline-block rounded-lg border border-slate-300 px-5 py-2 text-sm font-medium text-slate-600">← Volver al cotizador</a>
+          <Link href="/" className="mt-5 inline-block rounded-lg border border-slate-300 px-5 py-2 text-sm font-medium text-slate-600">← Volver al cotizador</Link>
         </div>
       </main>
     );
@@ -86,7 +87,7 @@ export default function CotizacionPage() {
         <div className="max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
           <h1 className="text-lg font-bold text-emerald-900">Aún no hay una propuesta para mostrar</h1>
           <p className="mt-3 text-sm text-slate-600">Completa el cotizador para calcular tu sistema y generar el documento con tus datos.</p>
-          <a href="/" className="mt-5 inline-block rounded-lg bg-emerald-800 px-5 py-2 text-sm font-semibold text-white">Ir al cotizador</a>
+          <Link href="/" className="mt-5 inline-block rounded-lg bg-emerald-800 px-5 py-2 text-sm font-semibold text-white">Ir al cotizador</Link>
         </div>
       </main>
     );
@@ -96,7 +97,7 @@ export default function CotizacionPage() {
     <main className="quote-preview min-h-screen bg-slate-200 px-3 py-4 sm:px-4 sm:py-7 print:bg-white print:p-0">
       <div className="quote-controls mx-auto mb-4 flex max-w-lg flex-col gap-2 sm:mb-6 sm:flex-row sm:justify-center sm:gap-3 print:hidden">
         <button type="button" onClick={() => window.print()} className="w-full rounded-lg bg-emerald-800 px-6 py-2.5 text-sm font-semibold text-white shadow hover:bg-emerald-900 sm:w-auto">Imprimir / Guardar PDF</button>
-        <a href="/" className="w-full rounded-lg border border-slate-300 bg-white px-6 py-2.5 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto">← Volver al cotizador</a>
+        <Link href="/" className="w-full rounded-lg border border-slate-300 bg-white px-6 py-2.5 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto">← Volver al cotizador</Link>
       </div>
 
       <div ref={previewViewportRef} className="quote-preview-viewport mx-auto w-full overflow-hidden">
