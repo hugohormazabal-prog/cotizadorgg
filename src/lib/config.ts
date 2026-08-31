@@ -184,7 +184,7 @@ const CAPACIDAD_REFERENCIA_KWP = 3.72;
 const EQUIPOS_REFERENCIA_POR_KWP = EQUIPOS_REFERENCIA_NETO / CAPACIDAD_REFERENCIA_KWP;
 
 export const CONFIG_DEFAULT: ConfigCotizador = {
-  schemaVersion: 7,
+  schemaVersion: 8,
   precioKwhClp: 250,
   precioNudoInyeccionClp: 105.7033,
   ivaInyeccion: 1.19,
@@ -421,6 +421,7 @@ function normalizeVariablesVinculantes(value: unknown): VariablesVinculantesKwp 
 export function normalizeConfig(value: unknown): ConfigCotizador {
   const raw = isRecord(value) ? value : {};
   const migratingToV7 = Number(raw.schemaVersion ?? 0) < 7;
+  const migratingToV8 = Number(raw.schemaVersion ?? 0) < 8;
   const normalized: Record<string, unknown> = { ...CONFIG_DEFAULT };
   for (const [key, defaultValue] of Object.entries(CONFIG_DEFAULT)) {
     if (!(key in raw)) continue;
@@ -491,12 +492,12 @@ export function normalizeConfig(value: unknown): ConfigCotizador {
   merged.costoServiciosPorKwpNeto = costoPartidasPorCategoria(merged.partidasCostoKwp, 'servicios');
   merged.catalogoPaneles = normalizePanels(merged.catalogoPaneles);
   merged.catalogoInversores = normalizeInverters(merged.catalogoInversores);
-  if (migratingToV7) {
+  if (migratingToV8) {
     merged.catalogoPaneles = merged.catalogoPaneles.map((item) => item.id === 'panel-ulica-620-w'
       ? { ...item, costoNetoClp: 76_500, precioVentaClp: 95_000, margen: 0.19 }
       : item);
     merged.catalogoInversores = merged.catalogoInversores.map((item) => item.id === 'inverter-huawei-hibrido-6kw'
-      ? { ...item, costoNetoClp: 663_000, precioVentaClp: 819_000, margen: 0.19 }
+      ? { ...item, costoNetoClp: 663_000, precioVentaClp: 819_000, margen: 0.19, stock: true, estado: 'active' }
       : item);
     if (merged.panelActivoId === 'panel-longi-620-w') merged.panelActivoId = 'panel-ulica-620-w';
     if (merged.inversorActivoId === 'inverter-sigen-on-grid-web') merged.inversorActivoId = 'inverter-huawei-hibrido-6kw';

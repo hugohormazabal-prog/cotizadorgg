@@ -76,8 +76,20 @@ assert.equal(hasErrors(validateRawConfigPayload(CONFIG_DEFAULT, GENERACION_POR_Z
 assert.equal(hasErrors(validateRawConfigPayload({}, {})), true);
 
 const migrated = normalizeConfig({ ...CONFIG_DEFAULT, schemaVersion: 6, margen: 0.19, co2FactorKgPerKwh: 0.4 });
-assert.equal(migrated.schemaVersion, 7);
+assert.equal(migrated.schemaVersion, 8);
 assert.equal(migrated.co2FactorKgPerKwh, 0.5);
 assert.equal(migrated.inversionRespuesto10, 819_000);
+
+const repairedV7 = normalizeConfig({
+  ...CONFIG_DEFAULT,
+  schemaVersion: 7,
+  inversorActivoId: 'inverter-sigen-on-grid-web',
+  catalogoInversores: CONFIG_DEFAULT.catalogoInversores.map((item) => item.id === 'inverter-huawei-hibrido-6kw'
+    ? { ...item, estado: 'inactive' as const }
+    : item),
+});
+assert.equal(repairedV7.schemaVersion, 8);
+assert.equal(repairedV7.inversorActivoId, 'inverter-huawei-hibrido-6kw');
+assert.equal(repairedV7.inversorMarcaModelo, 'Inversor Huawei Híbrido 6kW');
 
 console.log('Integridad OK: caso golden, financiamiento, proyección, variables vinculantes, inversor y validación.');
