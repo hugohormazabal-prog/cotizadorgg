@@ -15,6 +15,7 @@ import {
   precioInyeccionKwhClp,
   redondearHaciaArriba,
   calcularCreditoAlza,
+  costoPartidasPorCategoria,
 } from './config';
 
 /** Número de fases de la instalación. 1 = monofásico (casa/depto), 3 = trifásico (empresa). */
@@ -62,6 +63,20 @@ export interface AhorroEstimado {
   ahorroMensualProm: number;        // CLP — promedio mensual
 }
 
+export interface VariablesVinculantesCalculadas {
+  canalizacionPanInvExteriorM: number;
+  canalizacionPanInvSubterraneoM: number;
+  canalizacionInvTabExteriorM: number;
+  canalizacionInvTabSubterraneoM: number;
+  canalizacionTabPcExteriorM: number;
+  canalizacionTabPcSubterraneoM: number;
+  canalizacionTabPcAereoM: number;
+  proteccionGeneralA: number;
+  numeroMesas: number;
+  numeroFases: 1 | 3;
+  tipoFijacionTecho: string;
+}
+
 export interface FinanciamientoOpcion {
   id: string;
   nombre: string;
@@ -98,7 +113,15 @@ export interface CotizacionCompleta {
     materialesGeneralesNeto: number;
     serviciosNeto: number;
     totalNeto: number;
+    partidasKwp: Array<{
+      id: string;
+      nombre: string;
+      categoria: 'materiales' | 'servicios';
+      costoNetoClpPorKwp: number;
+      costoNeto: number;
+    }>;
   };
+  variablesVinculantes: VariablesVinculantesCalculadas;
   proyeccion: {
     periodoAnios: number;
     ahorroAcumuladoClp: number;
@@ -111,6 +134,40 @@ export interface CotizacionCompleta {
 
   // Garantías (para mostrar)
   garantias: { label: string; valor: string }[];
+}
+
+function cantidadEscalada(valorPorKwp: number, capacidadKwp: number, multiplo: number): number {
+  return redondearHaciaArriba(valorPorKwp * capacidadKwp, multiplo);
+}
+
+export function calcularVariablesVinculantes(
+  capacidadKwp: number,
+  cfg: ConfigCotizador,
+  fases: Fases = cfg.variablesVinculantesKwp.fasesPredeterminadas,
+): VariablesVinculantesCalculadas {
+  const variables = cfg.variablesVinculantesKwp;
+  const metros = (coeficiente: number) => cantidadEscalada(
+    coeficiente,
+    capacidadKwp,
+    variables.redondeoCanalizacionM,
+  );
+  return {
+    canalizacionPanInvExteriorM: metros(variables.canalizacionPanInvExteriorMPorKwp),
+    canalizacionPanInvSubterraneoM: metros(variables.canalizacionPanInvSubterraneoMPorKwp),
+    canalizacionInvTabExteriorM: metros(variables.canalizacionInvTabExteriorMPorKwp),
+    canalizacionInvTabSubterraneoM: metros(variables.canalizacionInvTabSubterraneoMPorKwp),
+    canalizacionTabPcExteriorM: metros(variables.canalizacionTabPcExteriorMPorKwp),
+    canalizacionTabPcSubterraneoM: metros(variables.canalizacionTabPcSubterraneoMPorKwp),
+    canalizacionTabPcAereoM: metros(variables.canalizacionTabPcAereoMPorKwp),
+    proteccionGeneralA: cantidadEscalada(
+      variables.proteccionGeneralAPorKwp,
+      capacidadKwp,
+      variables.redondeoProteccionA,
+    ),
+    numeroMesas: Math.ceil(variables.mesasPorKwp * capacidadKwp),
+    numeroFases: fases,
+    tipoFijacionTecho: variables.tipoFijacionTecho,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -130,7 +187,7 @@ export function calcularCotizacion(params: {
 }): CotizacionCompleta | null {
   const { montoClp, consumoKwh, unidad, region } = params;
   const cfg = params.config ?? CONFIG_DEFAULT;
-  const fases: Fases = params.fases ?? 1;
+  const fases: Fases = params.fases ?? cfg.variablesVinculantesKwp.fasesPredeterminadas;
   const genZona = params.generacionPorZona ?? GENERACION_POR_ZONA;
   const precioIny = precioInyeccionKwhClp(cfg);
   const panelActivo = getPanelActivo(cfg);
@@ -218,8 +275,15 @@ export function calcularCotizacion(params: {
   // 4. Precio del proyecto
   const panelesNeto = numeroPaneles * panelActivo.costoNetoClp;
   const inversorNeto = inversorActivo.costoNetoClp;
-  const materialesGeneralesNeto = capacidadKwp * cfg.costoMaterialesGeneralesPorKwpNeto;
-  const serviciosNeto = capacidadKwp * cfg.costoServiciosPorKwpNeto;
+  const partidasKwp = cfg.partidasCostoKwp.filter((partida) => partida.activa).map((partida) => ({
+    id: partida.id,
+    nombre: partida.nombre,
+    categoria: partida.categoria,
+    costoNetoClpPorKwp: partida.costoNetoClpPorKwp,
+    costoNeto: capacidadKwp * partida.costoNetoClpPorKwp,
+  }));
+  const materialesGeneralesNeto = capacidadKwp * costoPartidasPorCategoria(cfg.partidasCostoKwp, 'materiales');
+  const serviciosNeto = capacidadKwp * costoPartidasPorCategoria(cfg.partidasCostoKwp, 'servicios');
   const totalNeto = panelesNeto + inversorNeto + materialesGeneralesNeto + serviciosNeto;
   const precioSinRedondeo = cfg.margen < 1
     ? (totalNeto / (1 - cfg.margen)) * cfg.ivaVenta
@@ -237,7 +301,9 @@ export function calcularCotizacion(params: {
     materialesGeneralesNeto,
     serviciosNeto,
     totalNeto,
+    partidasKwp,
   };
+  const variablesVinculantes = calcularVariablesVinculantes(capacidadKwp, cfg, fases);
 
   // 5. Opciones de financiamiento
   const totalMP = Math.round(precioProyectoClp * cfg.factorMP);
@@ -342,6 +408,7 @@ export function calcularCotizacion(params: {
     paybackMeses,
     precioPorKwp,
     desgloseCostos,
+    variablesVinculantes,
     proyeccion: {
       periodoAnios: cfg.periodoEvaluacionAnios,
       ahorroAcumuladoClp: Math.round(ahorroAcumuladoClp),

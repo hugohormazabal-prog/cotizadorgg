@@ -82,11 +82,25 @@ desarrollo; con Supabase configurado guarda borradores y publicaciones globales,
 mantiene historial, valida los valores y bloquea conflictos entre sesiones. Cada
 solicitud registra la versión y una instantánea de los parámetros usados.
 
-La configuración se construyó mediante una auditoría de las 38 hojas de
-`Cotizador Residencial.xlsm`. La vista “Cobertura del Excel” identifica qué hojas
+La configuración se construyó mediante una auditoría de las 39 hojas de
+`Cotizador Residencial (2).xlsm`. La vista “Cobertura del Excel” identifica qué hojas
 alimentan el cotizador residencial, cuáles se consolidan en costos y cuáles
 pertenecen a flujos granel/off-grid. La propuesta comercial derivada de la PPT se
 considera un artefacto protegido y no se modifica desde el mantenedor.
+
+El motor vigente usa **kWp como escala única** para las variables vinculantes y
+los costos generales. La sección “Variables por kWp” permite administrar:
+
+- coeficientes de canalización PAN–INV, INV–TAB y TAB–PC;
+- protección general, número de mesas y reglas de redondeo;
+- fases y tipo de fijación como categorías técnicas;
+- ocho partidas netas por kWp de materiales y servicios que alimentan
+  directamente el precio.
+
+Las configuraciones publicadas con el esquema anterior se migran al cargar: las
+dos bolsas históricas de materiales/servicios se distribuyen proporcionalmente
+entre las nuevas partidas sin cambiar el total por kWp ni el precio del caso
+patrón.
 
 ## TODOs / pendientes a definir contigo (Hugo)
 

@@ -1,11 +1,12 @@
 # Auditoría del modelo “Cotizador Residencial.xlsm”
 
-Fecha de revisión: 17 de agosto de 2026.
+Fecha de revisión: 31 de agosto de 2026.
 
 ## Alcance y protección del original
 
-- Libro analizado en modo lectura: `/Users/hh/Downloads/Cotizador Residencial.xlsm`.
-- Se inventariaron las 38 hojas visibles, 14.449 celdas con fórmula, 156 nombres, 10 tablas y 25 validaciones.
+- Libro analizado en modo lectura: `/Users/hh/Downloads/Cotizador Residencial (2).xlsm`.
+- Se revisaron las 39 hojas del archivo entregado, incluida la tabla vinculante
+  `MAIN!B43:C54` y su cadena `MAIN → INPUT → COTBACK`.
 - El libro original no fue modificado.
 - La hoja `PPT` y el documento comercial derivado de la presentación se consideran protegidos. El mantenedor no cambia su diseño ni su contenido.
 
@@ -28,11 +29,35 @@ Caso residencial monofásico, Región Metropolitana, cuenta de $70.000/mes y tar
 
 Este caso se usa como prueba dorada del motor web.
 
+## Corrección aplicada: kWp como escala única
+
+La tabla vinculante ya no se replica como cantidades fijas ni mediante fórmulas
+dependientes del número de paneles. El motor web calcula desde la capacidad
+instalada los siguientes coeficientes editables:
+
+| Variable | Unidad administrada | Referencia |
+|---|---:|---|
+| Canalización PAN–INV exterior/subterránea | m/kWp | `MAIN!C44:C45` |
+| Canalización INV–TAB exterior/subterránea | m/kWp | `MAIN!C46:C47` |
+| Canalización TAB–PC exterior/subterránea/aérea | m/kWp | `MAIN!C48:C50` |
+| Protección general | A/kWp | `MAIN!C51` |
+| Número de mesas | mesas/kWp | `MAIN!C52` |
+
+El redondeo de metros y amperes también es administrable. El número de fases y
+el tipo de fijación permanecen como categorías técnicas editables, porque no son
+magnitudes que deban multiplicarse por kWp.
+
+El costo escalable se reemplazó por ocho partidas netas por kWp: estructura,
+comunicación, cables/canalización, tableros/protecciones, gestión, instalación,
+ingeniería y puesta en marcha/logística. La suma predeterminada conserva los
+$159.314 de materiales y $301.994 de servicios por kWp del motor anterior.
+
 ## Variables gobernadas por el mantenedor
 
 - Energía: tarifa de consumo, precio de nudo, IVA de inyección, límite de autoconsumo y proyección de consumo.
 - Dimensionamiento: panel activo, potencia del panel, mínimo y tope monofásico, inversor activo y potencia mínima.
-- Precio: costos netos agregados de materiales y servicios, margen, IVA y regla de redondeo.
+- Precio: partidas netas detalladas por kWp, equipos de catálogo, margen, IVA y regla de redondeo.
+- Variables vinculantes: canalizaciones, protección, mesas, redondeos, fases y fijación.
 - Financiamiento: factores y cuotas de Mercado Pago y Santander; tasa, gracia, plazo, fee, garantías, gastos y UF de ALZA.
 - Proyección: IPC, degradación, horizonte, descuento y dos reposiciones.
 - Garantías e impacto: paneles, inversor, instalación y factor CO₂.
@@ -82,6 +107,22 @@ Los catálogos que no son elegibles en el formulario residencial se mantienen fu
 - `IMAGEN!A1:A13` devuelve `#VALUE!` y propaga errores visuales.
 - `FINBACK!B58/B67` están rotuladas como cantidad de inversores, pero devuelven una tarifa de 250.
 - Tres macros apuntan a hojas inexistentes; el VBA útil se limita a impresión.
+
+Además, la revisión del archivo `(2)` detectó y evitó reproducir estas
+inconsistencias activas:
+
+- `MAIN!C44` equivalía a dos veces la cantidad de paneles, no a una regla por
+  potencia instalada.
+- Las fórmulas de tierra y canalización omitían tramos o aplicaban dobles
+  multiplicadores en TAB–PC.
+- `MAIN!C53` tenía una validación que apuntaba a un rango vacío y `C54` no tenía
+  validación.
+- Los totales publicados omitían líneas activas de alero, grapa y rotulación.
+- Existían divergencias entre la cotización, el contrato y la PPT para extras
+  de canalización.
+
+La corrección se implementó en el motor web y el mantenedor; el XLSM entregado
+se conserva intacto como fuente auditada para no perder su proyecto VBA.
 
 Por estas razones el motor se reconstruyó desde reglas válidas y resultados patrón, no mediante una copia ciega de fórmulas dañadas.
 

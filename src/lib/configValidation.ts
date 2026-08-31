@@ -33,6 +33,14 @@ function finiteRange(
 export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZona): ConfigIssue[] {
   const issues: ConfigIssue[] = [];
 
+  const nestedRange = (field: string, value: number, min: number, max: number, label: string): void => {
+    if (!Number.isFinite(value)) {
+      issues.push({ field, message: `${label} debe ser un número válido.`, severity: 'error' });
+    } else if (value < min || value > max) {
+      issues.push({ field, message: `${label} debe estar entre ${min} y ${max}.`, severity: 'error' });
+    }
+  };
+
   const validateCatalog = (kind: 'panel' | 'inversor'): void => {
     const catalog = kind === 'panel' ? config.catalogoPaneles : config.catalogoInversores;
     const activeId = kind === 'panel' ? config.panelActivoId : config.inversorActivoId;
@@ -63,6 +71,55 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
 
   validateCatalog('panel');
   validateCatalog('inversor');
+
+  const partidasIds = new Set<string>();
+  const partidasNombres = new Set<string>();
+  for (const partida of config.partidasCostoKwp) {
+    const field = `partidasCostoKwp.${partida.id || 'sin-id'}`;
+    const normalizedName = partida.nombre.trim().toLocaleLowerCase('es-CL');
+    if (!partida.id || partidasIds.has(partida.id)) {
+      issues.push({ field, message: 'Las partidas por kWp deben tener identificadores únicos.', severity: 'error' });
+    }
+    if (!normalizedName || partidasNombres.has(normalizedName)) {
+      issues.push({ field, message: 'Las partidas por kWp deben tener nombres únicos.', severity: 'error' });
+    }
+    partidasIds.add(partida.id);
+    partidasNombres.add(normalizedName);
+    nestedRange(field, partida.costoNetoClpPorKwp, 0, 100_000_000, partida.nombre || 'Partida por kWp');
+    if (partida.activa && partida.costoNetoClpPorKwp === 0) {
+      issues.push({ field, message: `${partida.nombre} está activa con costo cero.`, severity: 'warning' });
+    }
+  }
+  for (const categoria of ['materiales', 'servicios'] as const) {
+    if (!config.partidasCostoKwp.some((partida) => partida.activa && partida.categoria === categoria)) {
+      issues.push({
+        field: 'partidasCostoKwp',
+        message: `Debe existir al menos una partida activa de ${categoria}.`,
+        severity: 'error',
+      });
+    }
+  }
+
+  const vinculantes = config.variablesVinculantesKwp;
+  const coeficientes: Array<[keyof typeof vinculantes, number, string]> = [
+    ['canalizacionPanInvExteriorMPorKwp', vinculantes.canalizacionPanInvExteriorMPorKwp, 'Canalización PAN–INV exterior por kWp'],
+    ['canalizacionPanInvSubterraneoMPorKwp', vinculantes.canalizacionPanInvSubterraneoMPorKwp, 'Canalización PAN–INV subterránea por kWp'],
+    ['canalizacionInvTabExteriorMPorKwp', vinculantes.canalizacionInvTabExteriorMPorKwp, 'Canalización INV–TAB exterior por kWp'],
+    ['canalizacionInvTabSubterraneoMPorKwp', vinculantes.canalizacionInvTabSubterraneoMPorKwp, 'Canalización INV–TAB subterránea por kWp'],
+    ['canalizacionTabPcExteriorMPorKwp', vinculantes.canalizacionTabPcExteriorMPorKwp, 'Canalización TAB–PC exterior por kWp'],
+    ['canalizacionTabPcSubterraneoMPorKwp', vinculantes.canalizacionTabPcSubterraneoMPorKwp, 'Canalización TAB–PC subterránea por kWp'],
+    ['canalizacionTabPcAereoMPorKwp', vinculantes.canalizacionTabPcAereoMPorKwp, 'Canalización TAB–PC aérea por kWp'],
+    ['proteccionGeneralAPorKwp', vinculantes.proteccionGeneralAPorKwp, 'Protección general por kWp'],
+    ['mesasPorKwp', vinculantes.mesasPorKwp, 'Mesas por kWp'],
+  ];
+  for (const [key, value, label] of coeficientes) {
+    nestedRange(`variablesVinculantesKwp.${key}`, value, 0, 10_000, label);
+  }
+  nestedRange('variablesVinculantesKwp.redondeoCanalizacionM', vinculantes.redondeoCanalizacionM, 0.01, 100, 'Redondeo de canalización');
+  nestedRange('variablesVinculantesKwp.redondeoProteccionA', vinculantes.redondeoProteccionA, 1, 1_000, 'Redondeo de protección');
+  if (!vinculantes.tipoFijacionTecho.trim()) {
+    issues.push({ field: 'variablesVinculantesKwp.tipoFijacionTecho', message: 'El tipo de fijación no puede quedar vacío.', severity: 'error' });
+  }
 
   finiteRange(issues, 'precioKwhClp', config.precioKwhClp, 1, 10_000, 'Precio de consumo');
   finiteRange(issues, 'precioNudoInyeccionClp', config.precioNudoInyeccionClp, 0.01, 10_000, 'Precio de nudo');

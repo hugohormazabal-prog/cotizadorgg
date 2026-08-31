@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle, BarChart3, CheckCircle2, ChevronRight,
   CircleDollarSign, Cloud, Download, FileClock, History, KeyRound, Loader2,
-  PanelTop, RotateCcw, Save, Settings2, Sun, Upload, Zap,
+  PanelTop, RotateCcw, Ruler, Save, Settings2, Sun, Upload, Zap,
 } from 'lucide-react';
 import {
   CONFIG_DEFAULT,
@@ -30,14 +30,16 @@ import {
 import { calcularCotizacion, formatCLP } from '@/lib/estimaciones';
 import { hasErrors, validateConfig, type ConfigIssue } from '@/lib/configValidation';
 import { EquipmentCatalogManager } from '@/components/maintainer/EquipmentCatalogManager';
+import { KwpVariablesManager } from '@/components/maintainer/KwpVariablesManager';
 
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-type SectionId = 'resumen' | 'energia' | 'equipos' | 'financiamiento' | 'proyeccion' | 'generacion' | 'cambios';
+type SectionId = 'resumen' | 'energia' | 'variables' | 'equipos' | 'financiamiento' | 'proyeccion' | 'generacion' | 'cambios';
 
 const SECTIONS: { id: SectionId; label: string; icon: typeof Zap }[] = [
   { id: 'resumen', label: 'Resumen e impacto', icon: BarChart3 },
   { id: 'energia', label: 'Energía y cálculo', icon: Zap },
+  { id: 'variables', label: 'Variables por kWp', icon: Ruler },
   { id: 'equipos', label: 'Equipos y precio', icon: PanelTop },
   { id: 'financiamiento', label: 'Financiamiento', icon: CircleDollarSign },
   { id: 'proyeccion', label: 'Proyección y garantías', icon: FileClock },
@@ -534,21 +536,23 @@ export default function MantenedorPage() {
             </SectionCard>
           )}
 
+          {section === 'variables' && (
+            <KwpVariablesManager config={config} onChange={setConfig} preview={preview} issues={issues} />
+          )}
+
           {section === 'equipos' && (
             <div className="space-y-5">
               <EquipmentCatalogManager config={config} onChange={setConfig} />
-              <SectionCard title="Costos generales del proyecto" description="Estos costos no incluyen paneles ni inversores; ambos se toman del equipo seleccionado.">
+              <SectionCard title="Reglas comerciales del precio" description="Las partidas escalables se administran en Variables por kWp. Aquí se mantienen el margen, IVA y redondeo final.">
                 <div className="grid gap-5 md:grid-cols-2">
-                  <NumberField id="cost-material" label="Materiales generales por kWp" value={config.costoMaterialesGeneralesPorKwpNeto} onChange={(value) => patch('costoMaterialesGeneralesPorKwpNeto', value)} unit="CLP neto" integer issue={issueFor('costoMaterialesGeneralesPorKwpNeto')} />
-                  <NumberField id="cost-service" label="Costo servicios por kWp" value={config.costoServiciosPorKwpNeto} onChange={(value) => patch('costoServiciosPorKwpNeto', value)} unit="CLP neto" integer issue={issueFor('costoServiciosPorKwpNeto')} />
                   <NumberField id="margin" label="Margen objetivo" value={config.margen} onChange={(value) => patch('margen', value)} percent min={0} max={0.8} issue={issueFor('margen')} />
                   <NumberField id="iva-sale" label="IVA de venta" value={config.ivaVenta - 1} onChange={(value) => patch('ivaVenta', 1 + value)} percent min={0} max={1} issue={issueFor('ivaVenta')} />
                   <NumberField id="round-price" label="Redondeo hacia arriba" value={config.redondeoPrecioClp} onChange={(value) => patch('redondeoPrecioClp', value)} unit="CLP" integer issue={issueFor('redondeoPrecioClp')} />
                 </div>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <Metric label="Equipos seleccionados" value={formatCLP((preview?.desgloseCostos.panelesNeto ?? 0) + (preview?.desgloseCostos.inversorNeto ?? 0))} detail="Paneles + inversor del caso" tone="sky" />
-                  <Metric label="Materiales generales" value={formatCLP(preview?.desgloseCostos.materialesGeneralesNeto ?? 0)} detail="Según tamaño del sistema" />
-                  <Metric label="Servicios" value={formatCLP(preview?.desgloseCostos.serviciosNeto ?? 0)} detail="Según tamaño del sistema" />
+                  <Metric label="Materiales por kWp" value={formatCLP(preview?.desgloseCostos.materialesGeneralesNeto ?? 0)} detail="Suma de partidas activas" />
+                  <Metric label="Servicios por kWp" value={formatCLP(preview?.desgloseCostos.serviciosNeto ?? 0)} detail="Suma de partidas activas" />
                   <Metric label="Costo neto total" value={formatCLP(preview?.desgloseCostos.totalNeto ?? 0)} detail={`${formatCLP(costoGeneralPorKwpNeto(config))} generales por kWp`} tone="amber" />
                 </div>
               </SectionCard>

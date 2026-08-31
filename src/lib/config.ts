@@ -28,6 +28,66 @@ export type Region =
 export type GeneracionMensual = [number, number, number, number, number, number, number, number, number, number, number, number];
 export type GeneracionPorZona = Record<Region, GeneracionMensual>;
 
+export type CategoriaPartidaKwp = 'materiales' | 'servicios';
+
+export interface PartidaCostoKwp {
+  id: string;
+  nombre: string;
+  categoria: CategoriaPartidaKwp;
+  costoNetoClpPorKwp: number;
+  activa: boolean;
+  referenciaExcel: string;
+}
+
+/**
+ * Coeficientes que reemplazan las cantidades fijas de MAIN!C44:C52.
+ * Las magnitudes físicas se calculan desde la potencia instalada; fases y
+ * fijación siguen siendo categorías técnicas y por eso no se multiplican.
+ */
+export interface VariablesVinculantesKwp {
+  canalizacionPanInvExteriorMPorKwp: number;
+  canalizacionPanInvSubterraneoMPorKwp: number;
+  canalizacionInvTabExteriorMPorKwp: number;
+  canalizacionInvTabSubterraneoMPorKwp: number;
+  canalizacionTabPcExteriorMPorKwp: number;
+  canalizacionTabPcSubterraneoMPorKwp: number;
+  canalizacionTabPcAereoMPorKwp: number;
+  proteccionGeneralAPorKwp: number;
+  mesasPorKwp: number;
+  redondeoCanalizacionM: number;
+  redondeoProteccionA: number;
+  fasesPredeterminadas: 1 | 3;
+  tipoFijacionTecho: string;
+}
+
+const DEFAULT_PARTIDAS_COSTO_KWP: PartidaCostoKwp[] = [
+  { id: 'estructura', nombre: 'Estructura y fijaciones', categoria: 'materiales', costoNetoClpPorKwp: 34_043, activa: true, referenciaExcel: 'EST / COTBACK!257:269' },
+  { id: 'comunicacion', nombre: 'Comunicación y medición', categoria: 'materiales', costoNetoClpPorKwp: 12_216, activa: true, referenciaExcel: 'COM / COTBACK!271:273' },
+  { id: 'cables-canalizacion', nombre: 'Cables y canalización', categoria: 'materiales', costoNetoClpPorKwp: 87_867, activa: true, referenciaExcel: 'CABLE / CAN / COTBACK!275:324' },
+  { id: 'tableros-protecciones', nombre: 'Tableros y protecciones', categoria: 'materiales', costoNetoClpPorKwp: 25_188, activa: true, referenciaExcel: 'TAB / COTBACK!326:342' },
+  { id: 'gestion-proyecto', nombre: 'Gestión del proyecto', categoria: 'servicios', costoNetoClpPorKwp: 58_767, activa: true, referenciaExcel: 'SERV / COTBACK!344' },
+  { id: 'instalacion', nombre: 'Instalación', categoria: 'servicios', costoNetoClpPorKwp: 171_022, activa: true, referenciaExcel: 'SERV / COTBACK!345' },
+  { id: 'ingenieria-tramite', nombre: 'Ingeniería TE4 y conexión', categoria: 'servicios', costoNetoClpPorKwp: 66_134, activa: true, referenciaExcel: 'SERV / COTBACK!346' },
+  { id: 'puesta-marcha', nombre: 'Puesta en marcha, rotulación y logística', categoria: 'servicios', costoNetoClpPorKwp: 6_071, activa: true, referenciaExcel: 'SERV / COTBACK!347:360' },
+];
+
+const DEFAULT_VARIABLES_VINCULANTES_KWP: VariablesVinculantesKwp = {
+  // Caso auditado del libro: 6,2 kWp, 20/0/10/0/1/0/0 m, 40 A y 4 mesas.
+  canalizacionPanInvExteriorMPorKwp: 20 / 6.2,
+  canalizacionPanInvSubterraneoMPorKwp: 0,
+  canalizacionInvTabExteriorMPorKwp: 10 / 6.2,
+  canalizacionInvTabSubterraneoMPorKwp: 0,
+  canalizacionTabPcExteriorMPorKwp: 1 / 6.2,
+  canalizacionTabPcSubterraneoMPorKwp: 0,
+  canalizacionTabPcAereoMPorKwp: 0,
+  proteccionGeneralAPorKwp: 40 / 6.2,
+  mesasPorKwp: 4 / 6.2,
+  redondeoCanalizacionM: 1,
+  redondeoProteccionA: 10,
+  fasesPredeterminadas: 1,
+  tipoFijacionTecho: 'Coplanar Tipo L',
+};
+
 export const REGIONES: Region[] = [
   'De Arica', 'De Tarapacá', 'De Antofagasta', 'De Coquimbo',
   'De Valparaíso', 'Metropolitana', "De O'Higgins", 'Del Maule',
@@ -75,6 +135,9 @@ export interface ConfigCotizador {
   inversorActivoId: string;
 
   // Costos generales. Paneles e inversor se suman desde sus catálogos.
+  partidasCostoKwp: PartidaCostoKwp[];
+  variablesVinculantesKwp: VariablesVinculantesKwp;
+  /** Campos de compatibilidad para configuraciones v4; se sincronizan desde las partidas. */
   costoMaterialesGeneralesPorKwpNeto: number;
   costoServiciosPorKwpNeto: number;
   margen: number;
@@ -120,7 +183,7 @@ const CAPACIDAD_REFERENCIA_KWP = 3.72;
 const EQUIPOS_REFERENCIA_POR_KWP = EQUIPOS_REFERENCIA_NETO / CAPACIDAD_REFERENCIA_KWP;
 
 export const CONFIG_DEFAULT: ConfigCotizador = {
-  schemaVersion: 4,
+  schemaVersion: 5,
   precioKwhClp: 250,
   precioNudoInyeccionClp: 105.7033,
   ivaInyeccion: 1.19,
@@ -140,6 +203,8 @@ export const CONFIG_DEFAULT: ConfigCotizador = {
 
   // El total anterior de materiales incluía 6 paneles Longi y 1 inversor.
   // Esta base conserva el caso 3,72 kWp -> $3.919.000 sin duplicar equipos.
+  partidasCostoKwp: DEFAULT_PARTIDAS_COSTO_KWP,
+  variablesVinculantesKwp: DEFAULT_VARIABLES_VINCULANTES_KWP,
   costoMaterialesGeneralesPorKwpNeto: 159_314,
   costoServiciosPorKwpNeto: 301_994,
   margen: 0.2111,
@@ -197,7 +262,30 @@ export function getFactorGeneracion(cfg: ConfigCotizador): number {
 }
 
 export function costoGeneralPorKwpNeto(cfg: ConfigCotizador): number {
-  return cfg.costoMaterialesGeneralesPorKwpNeto + cfg.costoServiciosPorKwpNeto;
+  return cfg.partidasCostoKwp
+    .filter((partida) => partida.activa)
+    .reduce((total, partida) => total + partida.costoNetoClpPorKwp, 0);
+}
+
+export function costoPartidasPorCategoria(
+  partidas: PartidaCostoKwp[],
+  categoria: CategoriaPartidaKwp,
+): number {
+  return partidas
+    .filter((partida) => partida.activa && partida.categoria === categoria)
+    .reduce((total, partida) => total + partida.costoNetoClpPorKwp, 0);
+}
+
+export function withSyncedCostItems(
+  config: ConfigCotizador,
+  partidasCostoKwp: PartidaCostoKwp[],
+): ConfigCotizador {
+  return {
+    ...config,
+    partidasCostoKwp,
+    costoMaterialesGeneralesPorKwpNeto: costoPartidasPorCategoria(partidasCostoKwp, 'materiales'),
+    costoServiciosPorKwpNeto: costoPartidasPorCategoria(partidasCostoKwp, 'servicios'),
+  };
 }
 
 export function redondearHaciaArriba(valor: number, multiplo: number): number {
@@ -268,6 +356,59 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function normalizePartidasCosto(
+  value: unknown,
+  legacyMateriales: number,
+  legacyServicios: number,
+): PartidaCostoKwp[] {
+  const scaleDefaults = (categoria: CategoriaPartidaKwp, target: number): PartidaCostoKwp[] => {
+    const defaults = DEFAULT_PARTIDAS_COSTO_KWP.filter((item) => item.categoria === categoria);
+    const base = defaults.reduce((total, item) => total + item.costoNetoClpPorKwp, 0);
+    let assigned = 0;
+    return defaults.map((item, index) => {
+      const amount = index === defaults.length - 1
+        ? Math.max(0, target - assigned)
+        : Math.max(0, Math.round(target * item.costoNetoClpPorKwp / base));
+      assigned += amount;
+      return { ...item, costoNetoClpPorKwp: amount };
+    });
+  };
+
+  if (!Array.isArray(value)) {
+    return [
+      ...scaleDefaults('materiales', legacyMateriales),
+      ...scaleDefaults('servicios', legacyServicios),
+    ];
+  }
+
+  const normalized = value.map((item, index): PartidaCostoKwp | null => {
+    if (!isRecord(item)) return null;
+    const categoria = item.categoria === 'servicios' ? 'servicios' : 'materiales';
+    return {
+      id: typeof item.id === 'string' ? item.id.trim().slice(0, 80) : `partida-${index + 1}`,
+      nombre: typeof item.nombre === 'string' ? item.nombre.trim().slice(0, 160) : '',
+      categoria,
+      costoNetoClpPorKwp: typeof item.costoNetoClpPorKwp === 'number' ? item.costoNetoClpPorKwp : Number.NaN,
+      activa: item.activa !== false,
+      referenciaExcel: typeof item.referenciaExcel === 'string' ? item.referenciaExcel.trim().slice(0, 180) : '',
+    };
+  }).filter((item): item is PartidaCostoKwp => item !== null);
+  return normalized.length > 0 ? normalized : [...DEFAULT_PARTIDAS_COSTO_KWP.map((item) => ({ ...item }))];
+}
+
+function normalizeVariablesVinculantes(value: unknown): VariablesVinculantesKwp {
+  const raw = isRecord(value) ? value : {};
+  const result = { ...DEFAULT_VARIABLES_VINCULANTES_KWP } as Record<string, unknown>;
+  for (const [key, defaultValue] of Object.entries(DEFAULT_VARIABLES_VINCULANTES_KWP)) {
+    if (!(key in raw)) continue;
+    const incoming = raw[key];
+    if (typeof defaultValue === 'number') result[key] = typeof incoming === 'number' ? incoming : Number.NaN;
+    else if (typeof defaultValue === 'string') result[key] = typeof incoming === 'string' ? incoming.trim().slice(0, 160) : '';
+  }
+  result.fasesPredeterminadas = raw.fasesPredeterminadas === 3 ? 3 : 1;
+  return result as unknown as VariablesVinculantesKwp;
+}
+
 export function normalizeConfig(value: unknown): ConfigCotizador {
   const raw = isRecord(value) ? value : {};
   const normalized: Record<string, unknown> = { ...CONFIG_DEFAULT };
@@ -276,6 +417,7 @@ export function normalizeConfig(value: unknown): ConfigCotizador {
     const incoming = raw[key];
     if (key === 'catalogoPaneles') normalized[key] = normalizePanels(incoming);
     else if (key === 'catalogoInversores') normalized[key] = normalizeInverters(incoming);
+    else if (key === 'partidasCostoKwp' || key === 'variablesVinculantesKwp') continue;
     else if (typeof defaultValue === 'number') normalized[key] = typeof incoming === 'number' ? incoming : Number.NaN;
     else if (typeof defaultValue === 'string') normalized[key] = typeof incoming === 'string' ? incoming : '';
   }
@@ -303,6 +445,14 @@ export function normalizeConfig(value: unknown): ConfigCotizador {
     ));
     merged.costoServiciosPorKwpNeto = Math.round(base * (1 - legacyMaterialShare));
   }
+  merged.partidasCostoKwp = normalizePartidasCosto(
+    raw.partidasCostoKwp,
+    merged.costoMaterialesGeneralesPorKwpNeto,
+    merged.costoServiciosPorKwpNeto,
+  );
+  merged.variablesVinculantesKwp = normalizeVariablesVinculantes(raw.variablesVinculantesKwp);
+  merged.costoMaterialesGeneralesPorKwpNeto = costoPartidasPorCategoria(merged.partidasCostoKwp, 'materiales');
+  merged.costoServiciosPorKwpNeto = costoPartidasPorCategoria(merged.partidasCostoKwp, 'servicios');
   merged.catalogoPaneles = normalizePanels(merged.catalogoPaneles);
   merged.catalogoInversores = normalizeInverters(merged.catalogoInversores);
   const activePanel = merged.catalogoPaneles.find((item) => item.id === merged.panelActivoId && item.estado === 'active')
