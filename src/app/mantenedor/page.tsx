@@ -601,6 +601,35 @@ export default function MantenedorPage() {
                 <NumberField id="warranty-install" label="Garantía instalación" value={config.garantiaInstalacion} onChange={(value) => patch('garantiaInstalacion', value)} unit="años" integer reference="FINBACK!B62" issue={issueFor('garantiaInstalacion')} />
                 <NumberField id="co2" label="Factor mitigación CO₂" value={config.co2FactorKgPerKwh} onChange={(value) => patch('co2FactorKgPerKwh', value)} unit="kg/kWh" reference="FINBACK!B49" issue={issueFor('co2FactorKgPerKwh')} />
               </div>
+              {preview && (
+                <div className="mt-6 border-t border-slate-200 pt-5" aria-label="Proyección calculada">
+                  <div className="mb-3">
+                    <h3 className="text-sm font-bold text-slate-900">Proyección calculada</h3>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                      Vista inmediata para {scenarioRegion}, con una cuenta de {formatCLP(scenarioSpend)} al mes.
+                    </p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <Metric
+                      label={`Ahorro neto en ${preview.proyeccion.periodoAnios} años`}
+                      value={formatCLP(preview.proyeccion.ahorroAcumuladoClp)}
+                      detail="Incluye las reposiciones configuradas"
+                      tone="emerald"
+                    />
+                    <Metric
+                      label="VAN del proyecto"
+                      value={formatCLP(preview.proyeccion.vanClp)}
+                      detail={`Tasa de descuento: ${((config.tasaDescuentoAnual) * 100).toLocaleString('es-CL', { maximumFractionDigits: 2 })}%`}
+                      tone="sky"
+                    />
+                    <Metric
+                      label="Energía sin proyecto"
+                      value={formatCLP(preview.proyeccion.costoEnergiaSinProyectoClp)}
+                      detail={`Costo acumulado en ${preview.proyeccion.periodoAnios} años`}
+                    />
+                  </div>
+                </div>
+              )}
             </SectionCard>
           )}
 
