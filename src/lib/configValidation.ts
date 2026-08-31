@@ -153,8 +153,9 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
   finiteRange(issues, 'alzaFinancialFee', config.alzaFinancialFee, 0, 1, 'Fee ALZA');
   finiteRange(issues, 'alzaGarantiaCapital', config.alzaGarantiaCapital, 0, 0.8, 'Garantía ALZA sobre capital');
   finiteRange(issues, 'alzaGarantiaGastos', config.alzaGarantiaGastos, 0, 0.8, 'Garantía ALZA sobre gastos');
-  finiteRange(issues, 'alzaGastosUf', config.alzaGastosUf, 0, 1_000, 'Gastos variables ALZA');
-  finiteRange(issues, 'alzaGastoFijoClp', config.alzaGastoFijoClp, 0, 100_000_000, 'Gasto fijo ALZA');
+  finiteRange(issues, 'alzaCantidadGastos', config.alzaCantidadGastos, 0, 10_000, 'Cantidad de gastos ALZA');
+  finiteRange(issues, 'alzaCostoUnitarioClp', config.alzaCostoUnitarioClp, 0, 100_000_000, 'Costo unitario ALZA');
+  finiteRange(issues, 'alzaPieClp', config.alzaPieClp, 0, 100_000_000, 'Pie ALZA');
   finiteRange(issues, 'valorUfClp', config.valorUfClp, 1, 1_000_000, 'Valor UF');
   finiteRange(issues, 'garantiaPaneles', config.garantiaPaneles, 0, 50, 'Garantía de paneles');
   finiteRange(issues, 'garantiaInversor', config.garantiaInversor, 0, 50, 'Garantía de inversor');
@@ -170,6 +171,7 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
     ['cuotasSantander', config.cuotasSantander, 'Cuotas Santander'],
     ['alzaMesesGracia', config.alzaMesesGracia, 'Meses de gracia ALZA'],
     ['cuotasALZA', config.cuotasALZA, 'Plazo ALZA'],
+    ['alzaCantidadGastos', config.alzaCantidadGastos, 'Cantidad de gastos ALZA'],
     ['periodoEvaluacionAnios', config.periodoEvaluacionAnios, 'Período de evaluación'],
     ['anioReposicion1', config.anioReposicion1, 'Año de primera reposición'],
     ['anioReposicion2', config.anioReposicion2, 'Año de segunda reposición'],

@@ -25,7 +25,7 @@ Caso residencial monofásico, Región Metropolitana, cuenta de $70.000/mes y tar
 | Precio proyecto | $3.919.000 |
 | Payback simple | 4,4597 años |
 | Crédito ALZA | 300 meses, 3 de gracia |
-| Cuota ALZA | $46.223 / 1,150596 UF |
+| Cuota ALZA para el caso web de $3.919.000 | $40.816 / 0,9993 UF |
 
 Este caso se usa como prueba dorada del motor web.
 
@@ -58,7 +58,7 @@ $159.314 de materiales y $301.994 de servicios por kWp del motor anterior.
 - Dimensionamiento: panel activo, potencia del panel, mínimo y tope monofásico, inversor activo y potencia mínima.
 - Precio: partidas netas detalladas por kWp, equipos de catálogo, margen, IVA y regla de redondeo.
 - Variables vinculantes: canalizaciones, protección, mesas, redondeos, fases y fijación.
-- Financiamiento: factores y cuotas de Mercado Pago y Santander; tasa, gracia, plazo, fee, garantías, gastos y UF de ALZA.
+- Financiamiento: factores y cuotas de Mercado Pago y Santander; tasa, gracia, plazo, fee, garantías, cantidad y costo unitario de gastos, pie y UF de ALZA.
 - Proyección: IPC, degradación, horizonte, descuento y dos reposiciones.
 - Garantías e impacto: paneles, inversor, instalación y factor CO₂.
 - Generación: matriz mensual completa de 12 meses × 14 regiones.

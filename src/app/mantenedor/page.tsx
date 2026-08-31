@@ -571,15 +571,16 @@ export default function MantenedorPage() {
               </SectionCard>
               <SectionCard title="Crédito verde ALZA" description="Configura la tasa, el plazo, los gastos y las garantías del financiamiento.">
                 <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                  <NumberField id="alza-rate" label="Tasa anual" value={config.alzaTasaAnual} onChange={(value) => patch('alzaTasaAnual', value)} percent reference="CREDITOALZA!C25" issue={issueFor('alzaTasaAnual')} />
-                  <NumberField id="alza-term" label="Plazo" value={config.cuotasALZA} onChange={(value) => patch('cuotasALZA', value)} unit="meses" integer reference="CREDITOALZA!C24" issue={issueFor('cuotasALZA')} />
-                  <NumberField id="alza-grace" label="Meses de gracia" value={config.alzaMesesGracia} onChange={(value) => patch('alzaMesesGracia', value)} unit="meses" integer reference="CREDITOALZA!C23" issue={issueFor('alzaMesesGracia')} />
-                  <NumberField id="alza-fee" label="Costo financiero" value={config.alzaFinancialFee} onChange={(value) => patch('alzaFinancialFee', value)} percent issue={issueFor('alzaFinancialFee')} />
+                  <NumberField id="alza-rate" label="Tasa anual" value={config.alzaTasaAnual} onChange={(value) => patch('alzaTasaAnual', value)} percent reference="CREDITOALZA!C26" issue={issueFor('alzaTasaAnual')} />
+                  <NumberField id="alza-term" label="Plazo" value={config.cuotasALZA} onChange={(value) => patch('cuotasALZA', value)} unit="meses" integer reference="CREDITOALZA!C25" issue={issueFor('cuotasALZA')} />
+                  <NumberField id="alza-grace" label="Meses de gracia" value={config.alzaMesesGracia} onChange={(value) => patch('alzaMesesGracia', value)} unit="meses" integer reference="CREDITOALZA!C24" issue={issueFor('alzaMesesGracia')} />
+                  <NumberField id="alza-fee" label="Costo financiero" value={config.alzaFinancialFee} onChange={(value) => patch('alzaFinancialFee', value)} percent reference="CREDITOALZA!D21" issue={issueFor('alzaFinancialFee')} />
                   <NumberField id="alza-guarantee-cap" label="Garantía sobre capital" value={config.alzaGarantiaCapital} onChange={(value) => patch('alzaGarantiaCapital', value)} percent reference="CREDITOALZA!C14" issue={issueFor('alzaGarantiaCapital')} />
                   <NumberField id="alza-guarantee-exp" label="Garantía sobre gastos" value={config.alzaGarantiaGastos} onChange={(value) => patch('alzaGarantiaGastos', value)} percent reference="CREDITOALZA!C14" issue={issueFor('alzaGarantiaGastos')} />
-                  <NumberField id="alza-uf-cost" label="Gastos variables" value={config.alzaGastosUf} onChange={(value) => patch('alzaGastosUf', value)} unit="UF" reference="4,27 + 3,2 UF" issue={issueFor('alzaGastosUf')} />
-                  <NumberField id="alza-fixed" label="Gasto fijo" value={config.alzaGastoFijoClp} onChange={(value) => patch('alzaGastoFijoClp', value)} unit="CLP neto" reference="CREDITOALZA!C16" issue={issueFor('alzaGastoFijoClp')} />
-                  <NumberField id="uf" label="Valor UF" value={config.valorUfClp} onChange={(value) => patch('valorUfClp', value)} unit="CLP/UF" reference="CREDITOALZA!C28" issue={issueFor('valorUfClp')} />
+                  <NumberField id="alza-expense-count" label="Cantidad de gastos" value={config.alzaCantidadGastos} onChange={(value) => patch('alzaCantidadGastos', value)} unit="unidades" integer reference="CREDITOALZA!C16" issue={issueFor('alzaCantidadGastos')} />
+                  <NumberField id="alza-expense-unit" label="Costo unitario" value={config.alzaCostoUnitarioClp} onChange={(value) => patch('alzaCostoUnitarioClp', value)} unit="CLP neto" integer reference="CREDITOALZA!C16" issue={issueFor('alzaCostoUnitarioClp')} />
+                  <NumberField id="alza-down-payment" label="Pie" value={config.alzaPieClp} onChange={(value) => patch('alzaPieClp', value)} unit="CLP IVA incluido" integer reference="CREDITOALZA!C18" issue={issueFor('alzaPieClp')} />
+                  <NumberField id="uf" label="Valor UF" value={config.valorUfClp} onChange={(value) => patch('valorUfClp', value)} unit="CLP/UF" reference="CREDITOALZA!C29" issue={issueFor('valorUfClp')} />
                 </div>
                 {alzaPreview && <div className="mt-5 grid gap-3 sm:grid-cols-3"><Metric label="Total financiado" value={formatCLP(alzaPreview.totalFinanciado)} /><Metric label="Cuota mensual" value={formatCLP(alzaPreview.cuotaMensual)} tone="amber" /><Metric label="Cuota en UF" value={`${alzaPreview.cuotaUf.toLocaleString('es-CL', { maximumFractionDigits: 4 })} UF`} /></div>}
               </SectionCard>

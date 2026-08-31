@@ -167,8 +167,9 @@ export interface ConfigCotizador {
   alzaFinancialFee: number;
   alzaGarantiaCapital: number;
   alzaGarantiaGastos: number;
-  alzaGastosUf: number;
-  alzaGastoFijoClp: number;
+  alzaCantidadGastos: number;
+  alzaCostoUnitarioClp: number;
+  alzaPieClp: number;
   valorUfClp: number;
 
   // Garantías / impacto
@@ -183,7 +184,7 @@ const CAPACIDAD_REFERENCIA_KWP = 3.72;
 const EQUIPOS_REFERENCIA_POR_KWP = EQUIPOS_REFERENCIA_NETO / CAPACIDAD_REFERENCIA_KWP;
 
 export const CONFIG_DEFAULT: ConfigCotizador = {
-  schemaVersion: 5,
+  schemaVersion: 6,
   precioKwhClp: 250,
   precioNudoInyeccionClp: 105.7033,
   ivaInyeccion: 1.19,
@@ -225,15 +226,16 @@ export const CONFIG_DEFAULT: ConfigCotizador = {
   factorSantander: 1.1832,
   cuotasSantander: 48,
 
-  alzaTasaAnual: 0.0657,
+  alzaTasaAnual: 0.0639,
   alzaMesesGracia: 3,
   cuotasALZA: 300,
   alzaFinancialFee: 0.238,
   alzaGarantiaCapital: 0.119,
   alzaGarantiaGastos: 0.1,
-  alzaGastosUf: 7.47,
-  alzaGastoFijoClp: 350_000,
-  valorUfClp: 40_173.46,
+  alzaCantidadGastos: 6,
+  alzaCostoUnitarioClp: 41_000,
+  alzaPieClp: 0,
+  valorUfClp: 40_845,
 
   garantiaPaneles: 12,
   garantiaInversor: 10,
@@ -303,10 +305,10 @@ export interface CalculoAlza {
   cuotaUf: number;
 }
 
-/** Réplica de CREDITOALZA!C13:C29 para que plazo/tasa/UF se mantengan coherentes. */
+/** Réplica de CREDITOALZA!C13:C30 para que plazo/tasa/UF se mantengan coherentes. */
 export function calcularCreditoAlza(precioProyectoIva: number, cfg: ConfigCotizador): CalculoAlza {
-  const valorPlantaNeto = precioProyectoIva / cfg.ivaVenta;
-  const gastosFinancieros = (cfg.alzaGastosUf * cfg.valorUfClp + cfg.alzaGastoFijoClp) * cfg.ivaVenta;
+  const valorPlantaNeto = (precioProyectoIva - cfg.alzaPieClp) / cfg.ivaVenta;
+  const gastosFinancieros = cfg.alzaCantidadGastos * cfg.alzaCostoUnitarioClp * cfg.ivaVenta;
   const fee = cfg.alzaFinancialFee;
   const garantiaNumerador =
     cfg.alzaGarantiaCapital * valorPlantaNeto
@@ -320,9 +322,10 @@ export function calcularCreditoAlza(precioProyectoIva: number, cfg: ConfigCotiza
   const totalFinanciado = baseFinanciada * (1 + fee);
   const tasaMensual = Math.pow(1 + cfg.alzaTasaAnual, 1 / 12) - 1;
   const capitalConGracia = totalFinanciado * Math.pow(1 + tasaMensual, cfg.alzaMesesGracia);
-  const cuotaMensual = tasaMensual === 0
+  const cuotaSinRedondear = tasaMensual === 0
     ? capitalConGracia / cfg.cuotasALZA
     : (tasaMensual * capitalConGracia) / (1 - Math.pow(1 + tasaMensual, -cfg.cuotasALZA));
+  const cuotaMensual = Math.ceil(cuotaSinRedondear * 100_000) / 100_000;
   return {
     valorPlantaNeto, gastosFinancieros, garantia, totalFinanciado, tasaMensual,
     cuotaMensual,
@@ -431,6 +434,15 @@ export function normalizeConfig(value: unknown): ConfigCotizador {
   }
   if (Number(raw.schemaVersion ?? 0) < 4 && typeof raw.costoServiciosPorKwpNeto === 'number') {
     merged.costoServiciosPorKwpNeto = Math.round(raw.costoServiciosPorKwpNeto);
+  }
+  if (Number(raw.schemaVersion ?? 0) < 6) {
+    // La versión 5 usaba gastos en UF + un fijo de $350.000 y tasa 6,57%,
+    // variables que no existen en CREDITOALZA del libro auditado.
+    merged.alzaTasaAnual = CONFIG_DEFAULT.alzaTasaAnual;
+    merged.alzaCantidadGastos = CONFIG_DEFAULT.alzaCantidadGastos;
+    merged.alzaCostoUnitarioClp = CONFIG_DEFAULT.alzaCostoUnitarioClp;
+    merged.alzaPieClp = CONFIG_DEFAULT.alzaPieClp;
+    merged.valorUfClp = CONFIG_DEFAULT.valorUfClp;
   }
   if (
     typeof raw.costoPorKwpClpIva === 'number'
