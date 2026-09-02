@@ -250,8 +250,15 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
       issues.push({ field, message: rule.minPaneles < expectedPanel ? 'Los rangos de inversor no pueden solaparse.' : `Falta cubrir el panel ${expectedPanel}.`, severity: 'error' });
     }
     const inverter = config.catalogoInversores.find((item) => item.id === rule.inversorId);
-    if (!inverter || inverter.estado !== 'active' || !inverter.stock || inverter.fases !== rule.fases) {
-      issues.push({ field, message: 'El rango debe apuntar a un inversor activo, disponible y de las mismas fases.', severity: 'error' });
+    const tramo = `Paneles ${rule.minPaneles} a ${rule.maxPaneles}`;
+    if (!inverter) {
+      issues.push({ field, message: `${tramo}: el inversor asignado ya no existe en el catálogo. Elige uno en Equipos y precio.`, severity: 'error' });
+    } else if (inverter.estado !== 'active') {
+      issues.push({ field, message: `${tramo}: "${inverter.nombre}" está archivado. Reactívalo o asigna otro inversor.`, severity: 'error' });
+    } else if (!inverter.stock) {
+      issues.push({ field, message: `${tramo}: "${inverter.nombre}" está marcado sin stock. Repón el stock o asigna otro inversor.`, severity: 'error' });
+    } else if (inverter.fases !== rule.fases) {
+      issues.push({ field, message: `${tramo}: "${inverter.nombre}" es de ${inverter.fases} fase(s) y el rango es de ${rule.fases}.`, severity: 'error' });
     }
     expectedPanel = Math.max(expectedPanel, rule.maxPaneles + 1);
   }

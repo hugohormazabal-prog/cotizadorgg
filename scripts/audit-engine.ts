@@ -124,4 +124,26 @@ assert.equal(impar?.sistema.numeroPaneles, 9, 'Con el flag apagado debe volver e
 const tope = calcularCotizacion({ montoClp: 900_000, consumoKwh: null, unidad: 'clp', region: 'De los Lagos', fases: 1, config: CONFIG_DEFAULT, generacionPorZona: GENERACION_POR_ZONA });
 assert.equal(tope?.sistema.numeroPaneles, CONFIG_DEFAULT.maxPanelesMonofasico, 'El tope de 20 debe seguir mandando.');
 
+// Si el mantenedor archiva un inversor referenciado por un rango, la config no
+// puede quedar impublicable: la migracion reasigna al on-grid utilizable que
+// cubra el tramo. Caso real: se reemplazo Huawei 3kW/5kW por Sigen.
+const catalogoEditado = CONFIG_DEFAULT.catalogoInversores.map((item) => (
+  item.id === 'inverter-huawei-hibrido-3kw' || item.id === 'inverter-huawei-hibrido-5kw'
+    ? { ...item, estado: 'archived' as const }
+    : item
+));
+const reparada = normalizeConfig({ ...CONFIG_DEFAULT, schemaVersion: 9, catalogoInversores: catalogoEditado });
+assert.equal(hasErrors(validateConfig(reparada, GENERACION_POR_ZONA)), false,
+  'Archivar un inversor referenciado no debe dejar la configuracion impublicable.');
+for (const rule of reparada.reglasInversorPorPaneles) {
+  const inv = reparada.catalogoInversores.find((item) => item.id === rule.inversorId);
+  assert.ok(inv && inv.estado === 'active' && inv.stock && inv.fases === rule.fases,
+    `El rango ${rule.minPaneles}-${rule.maxPaneles} debe quedar en un inversor utilizable.`);
+}
+// El mensaje de error debe identificar el tramo, no repetirse igual dos veces.
+const rota = { ...reparada, catalogoInversores: catalogoEditado, reglasInversorPorPaneles: CONFIG_DEFAULT.reglasInversorPorPaneles };
+const mensajes = validateConfig(rota, GENERACION_POR_ZONA).filter((i) => i.severity === 'error').map((i) => i.message);
+assert.ok(mensajes.length >= 2 && new Set(mensajes).size === mensajes.length, 'Cada error debe nombrar su propio tramo.');
+assert.ok(mensajes.every((m) => /Paneles \d+ a \d+:/.test(m)), 'El error debe empezar identificando el tramo.');
+
 console.log('Integridad OK: costos fijos/variables, regiones, rangos de inversor, inyección con IVA, financiamiento y migración.');

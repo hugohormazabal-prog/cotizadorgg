@@ -575,6 +575,20 @@ export function normalizeConfig(value: unknown): ConfigCotizador {
       };
     }).filter((rule): rule is ReglaInversorPorPaneles => rule !== null)
     : CONFIG_DEFAULT.reglasInversorPorPaneles.map((rule) => ({ ...rule }));
+  // Si el catálogo guardado archivó o quitó el inversor que la regla apunta
+  // (p. ej. se reemplazó Huawei por Sigen), reasignamos al on-grid utilizable
+  // de menor potencia que cubra el tramo. Sin esto la config nace impublicable.
+  merged.reglasInversorPorPaneles = merged.reglasInversorPorPaneles.map((rule) => {
+    const usable = (item: InverterCatalogItem) => item.estado === 'active' && item.stock && item.fases === rule.fases
+      && item.linea.toLocaleLowerCase('es-CL').includes('on-grid');
+    const actual = merged.catalogoInversores.find((item) => item.id === rule.inversorId);
+    if (actual && usable(actual)) return rule;
+    const anterior = CONFIG_DEFAULT.catalogoInversores.find((item) => item.id === rule.inversorId);
+    const objetivoKw = anterior?.potenciaAcKw ?? 0;
+    const candidatos = merged.catalogoInversores.filter(usable).sort((a, b) => a.potenciaAcKw - b.potenciaAcKw);
+    const reemplazo = candidatos.find((item) => item.potenciaAcKw >= objetivoKw) ?? candidatos.at(-1);
+    return reemplazo ? { ...rule, inversorId: reemplazo.id } : rule;
+  });
   merged.costoMaterialesGeneralesPorKwpNeto = merged.partidasCostoKwp.filter((item) => item.activa && item.categoria === 'materiales').reduce((sum, item) => sum + item.costoVariableNetoClpPorKwp, 0);
   merged.costoServiciosPorKwpNeto = merged.partidasCostoKwp.filter((item) => item.activa && item.categoria === 'servicios').reduce((sum, item) => sum + item.costoVariableNetoClpPorKwp, 0);
   merged.catalogoPaneles = normalizePanels(merged.catalogoPaneles);

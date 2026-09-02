@@ -189,6 +189,24 @@ function Metric({ label, value, detail, tone = 'slate' }: { label: string; value
   );
 }
 
+/** Sección del mantenedor donde se corrige cada campo, para que el banner de
+ *  errores lleve directo al ajuste en vez de dejar al usuario buscándolo. */
+function seccionDelCampo(field: string): SectionId {
+  const raiz = field.split('.')[0];
+  if (raiz === 'reglasInversorPorPaneles' || raiz === 'catalogoInversores' || raiz === 'catalogoPaneles'
+    || raiz === 'panelActivoId' || raiz === 'inversorActivoId' || raiz === 'margen' || raiz === 'ivaVenta'
+    || raiz === 'redondeoPrecioClp') return 'equipos';
+  if (raiz === 'partidasCostoKwp' || raiz === 'variablesVinculantesKwp'
+    || raiz === 'costoMaterialesGeneralesPorKwpNeto' || raiz === 'costoServiciosPorKwpNeto') return 'variables';
+  if (raiz.startsWith('alza') || raiz === 'cuotasALZA' || raiz === 'valorUfClp' || raiz === 'factorMP'
+    || raiz === 'factorSantander' || raiz === 'cuotasMP' || raiz === 'cuotasSantander') return 'financiamiento';
+  if (raiz === 'genZona') return 'generacion';
+  if (raiz === 'mpcAnualClpKwh' || raiz === 'ipcAnual' || raiz === 'degradacionPaneles'
+    || raiz === 'tasaDescuentoAnual' || raiz === 'periodoEvaluacionAnios' || raiz.startsWith('anioReposicion')
+    || raiz.startsWith('inversionRespuesto') || raiz === 'garantiaInstalacion' || raiz === 'factorCo2') return 'proyeccion';
+  return 'energia';
+}
+
 export default function MantenedorPage() {
   const [section, setSection] = useState<SectionId>('resumen');
   const [config, setConfig] = useState<ConfigCotizador>(CONFIG_DEFAULT);
@@ -468,7 +486,27 @@ export default function MantenedorPage() {
           {errorCount > 0 && (
             <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4" role="alert">
               <p className="font-bold text-rose-900">Hay {errorCount} errores que bloquean la publicación</p>
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-rose-800">{issues.filter((issue) => issue.severity === 'error').slice(0, 6).map((issue) => <li key={`${issue.field}-${issue.message}`}>{issue.message}</li>)}</ul>
+              <ul className="mt-2 space-y-1.5 text-sm text-rose-800">{issues.filter((issue) => issue.severity === 'error').slice(0, 6).map((issue) => {
+                const destino = seccionDelCampo(issue.field);
+                const etiqueta = SECTIONS.find((item) => item.id === destino)?.label ?? 'Revisar';
+                return (
+                  <li key={`${issue.field}-${issue.message}`}>
+                    <button
+                      type="button"
+                      onClick={() => { setSection(destino); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className="group flex w-full items-start gap-2 rounded-lg px-2 py-1 text-left transition hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+                    >
+                      <span aria-hidden="true" className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
+                      <span>
+                        {issue.message}{' '}
+                        <span className="whitespace-nowrap font-bold underline decoration-rose-400 underline-offset-2 group-hover:decoration-rose-700">
+                          Ir a {etiqueta} →
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}</ul>
             </div>
           )}
 
