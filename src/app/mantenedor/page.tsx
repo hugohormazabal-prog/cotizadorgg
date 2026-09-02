@@ -12,7 +12,6 @@ import {
   REGIONES,
   cachePublishedBundle,
   calcularCreditoAlza,
-  costoGeneralPorKwpNeto,
   getConfig,
   getFactorGeneracion,
   getGeneracionPorZona,
@@ -39,7 +38,7 @@ type SectionId = 'resumen' | 'energia' | 'variables' | 'equipos' | 'financiamien
 const SECTIONS: { id: SectionId; label: string; icon: typeof Zap }[] = [
   { id: 'resumen', label: 'Resumen e impacto', icon: BarChart3 },
   { id: 'energia', label: 'Energía y cálculo', icon: Zap },
-  { id: 'variables', label: 'Variables por kWp', icon: Ruler },
+  { id: 'variables', label: 'Partidas y costos', icon: Ruler },
   { id: 'equipos', label: 'Equipos y precio', icon: PanelTop },
   { id: 'financiamiento', label: 'Financiamiento', icon: CircleDollarSign },
   { id: 'proyeccion', label: 'Proyección y garantías', icon: FileClock },
@@ -526,28 +525,27 @@ export default function MantenedorPage() {
             <SectionCard title="Energía y dimensionamiento" description="Configura las tarifas, el autoconsumo y los límites usados en cada simulación.">
               <div className="grid gap-5 md:grid-cols-2">
                 <NumberField id="precio-kwh" label="Tarifa de consumo" value={config.precioKwhClp} onChange={(value) => patch('precioKwhClp', value)} unit="CLP/kWh" reference="MAIN!C71" issue={issueFor('precioKwhClp')} />
-                <NumberField id="precio-nudo" label="Precio de nudo sin IVA" value={config.precioNudoInyeccionClp} onChange={(value) => patch('precioNudoInyeccionClp', value)} unit="CLP/kWh" reference="MAIN!C72" issue={issueFor('precioNudoInyeccionClp')} />
-                <NumberField id="iva-inyeccion" label="IVA aplicado a inyección" value={config.ivaInyeccion - 1} onChange={(value) => patch('ivaInyeccion', 1 + value)} percent min={0} max={1} reference="MAIN!C72" issue={issueFor('ivaInyeccion')} />
+                <NumberField id="precio-nudo" label="Precio de inyección (IVA incluido)" value={config.precioNudoInyeccionClp} onChange={(value) => patch('precioNudoInyeccionClp', value)} unit="CLP/kWh" reference="MAIN!C72" hint="Ingresa el valor final con IVA. El motor no vuelve a aplicarlo." issue={issueFor('precioNudoInyeccionClp')} />
                 <NumberField id="limite-auto" label="Límite de autoconsumo" value={config.limiteAutoconsumo} onChange={(value) => patch('limiteAutoconsumo', value)} percent min={0} max={1} reference="INPUT!B19" issue={issueFor('limiteAutoconsumo')} />
                 <NumberField id="proyeccion" label="Proyección de consumo" value={config.proyeccionConsumo} onChange={(value) => patch('proyeccionConsumo', value)} unit="factor" reference="INPUT!B18" issue={issueFor('proyeccionConsumo')} />
                 <NumberField id="min-paneles" label="Mínimo de paneles" value={config.minPaneles} onChange={(value) => patch('minPaneles', value)} unit="paneles" integer issue={issueFor('minPaneles')} />
                 <NumberField id="max-paneles" label="Tope monofásico" value={config.maxPanelesMonofasico} onChange={(value) => patch('maxPanelesMonofasico', value)} unit="paneles" integer reference="COTBACK!D53" issue={issueFor('maxPanelesMonofasico')} />
               </div>
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <Metric label="Inyección efectiva" value={`${precioInyeccionKwhClp(config).toLocaleString('es-CL', { maximumFractionDigits: 4 })} CLP/kWh`} detail="Precio de nudo × IVA" tone="sky" />
+                <Metric label="Inyección efectiva" value={`${precioInyeccionKwhClp(config).toLocaleString('es-CL', { maximumFractionDigits: 4 })} CLP/kWh`} detail="Valor final con IVA incluido" tone="sky" />
                 <Metric label="Factor de generación" value={getFactorGeneracion(config).toLocaleString('es-CL', { maximumFractionDigits: 4 })} detail="Calculado automáticamente" tone="amber" />
               </div>
             </SectionCard>
           )}
 
           {section === 'variables' && (
-            <KwpVariablesManager config={config} onChange={setConfig} preview={preview} issues={issues} />
+            <KwpVariablesManager config={config} onChange={setConfig} preview={preview} issues={issues} region={scenarioRegion} onRegionChange={setScenarioRegion} />
           )}
 
           {section === 'equipos' && (
             <div className="space-y-5">
               <EquipmentCatalogManager config={config} onChange={setConfig} />
-              <SectionCard title="Reglas comerciales del precio" description="Las partidas escalables se administran en Variables por kWp. Aquí se mantienen el margen, IVA y redondeo final.">
+              <SectionCard title="Reglas comerciales del precio" description="Las partidas se administran en Partidas y costos. Aquí se mantienen el margen, IVA y redondeo final.">
                 <div className="grid gap-5 md:grid-cols-2">
                   <NumberField id="margin" label="Margen efectivo" value={config.margen} onChange={(value) => patch('margen', value)} percent min={0} max={0.8} reference="CUBICADOR!L6" hint="El objetivo MAIN!C26 es 19%; los precios unitarios redondeados dejan 19,4089% efectivo en el caso patrón." issue={issueFor('margen')} />
                   <NumberField id="iva-sale" label="IVA de venta" value={config.ivaVenta - 1} onChange={(value) => patch('ivaVenta', 1 + value)} percent min={0} max={1} reference="COT_ONGRID!G293" issue={issueFor('ivaVenta')} />
@@ -555,9 +553,9 @@ export default function MantenedorPage() {
                 </div>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <Metric label="Equipos seleccionados" value={formatCLP((preview?.desgloseCostos.panelesNeto ?? 0) + (preview?.desgloseCostos.inversorNeto ?? 0))} detail="Paneles + inversor del caso" tone="sky" />
-                  <Metric label="Materiales por kWp" value={formatCLP(preview?.desgloseCostos.materialesGeneralesNeto ?? 0)} detail="Suma de partidas activas" />
-                  <Metric label="Servicios por kWp" value={formatCLP(preview?.desgloseCostos.serviciosNeto ?? 0)} detail="Suma de partidas activas" />
-                  <Metric label="Costo neto total" value={formatCLP(preview?.desgloseCostos.totalNeto ?? 0)} detail={`${formatCLP(costoGeneralPorKwpNeto(config))} generales por kWp`} tone="amber" />
+                  <Metric label="Materiales aplicados" value={formatCLP(preview?.desgloseCostos.materialesGeneralesNeto ?? 0)} detail="Fijo + variable por kWp" />
+                  <Metric label="Servicios regionales" value={formatCLP(preview?.desgloseCostos.serviciosNeto ?? 0)} detail={`Valores de ${scenarioRegion}`} />
+                  <Metric label="Costo neto total" value={formatCLP(preview?.desgloseCostos.totalNeto ?? 0)} detail={`Equipos + partidas de ${scenarioRegion}`} tone="amber" />
                 </div>
               </SectionCard>
             </div>
@@ -579,8 +577,7 @@ export default function MantenedorPage() {
                   <NumberField id="alza-term" label="Plazo" value={config.cuotasALZA} onChange={(value) => patch('cuotasALZA', value)} unit="meses" integer reference="CREDITOALZA!C25" issue={issueFor('cuotasALZA')} />
                   <NumberField id="alza-grace" label="Meses de gracia" value={config.alzaMesesGracia} onChange={(value) => patch('alzaMesesGracia', value)} unit="meses" integer reference="CREDITOALZA!C24" issue={issueFor('alzaMesesGracia')} />
                   <NumberField id="alza-fee" label="Costo financiero" value={config.alzaFinancialFee} onChange={(value) => patch('alzaFinancialFee', value)} percent reference="CREDITOALZA!D21" issue={issueFor('alzaFinancialFee')} />
-                  <NumberField id="alza-guarantee-cap" label="Garantía sobre capital" value={config.alzaGarantiaCapital} onChange={(value) => patch('alzaGarantiaCapital', value)} percent reference="CREDITOALZA!C14" issue={issueFor('alzaGarantiaCapital')} />
-                  <NumberField id="alza-guarantee-exp" label="Garantía sobre gastos" value={config.alzaGarantiaGastos} onChange={(value) => patch('alzaGarantiaGastos', value)} percent reference="CREDITOALZA!C14" issue={issueFor('alzaGarantiaGastos')} />
+                  <NumberField id="alza-guarantee" label="Garantía" value={config.alzaGarantiaPctTotal} onChange={(value) => patch('alzaGarantiaPctTotal', value)} percent reference="CREDITOALZA!E14" hint="Porcentaje del total del proyecto financiado. Reemplaza los antiguos 11,9% sobre capital y 10% sobre gastos: eran el mismo parámetro escrito de dos formas." issue={issueFor('alzaGarantiaPctTotal')} />
                   <NumberField id="alza-expense-count" label="Cantidad de gastos" value={config.alzaCantidadGastos} onChange={(value) => patch('alzaCantidadGastos', value)} unit="unidades" integer reference="CREDITOALZA!C16" issue={issueFor('alzaCantidadGastos')} />
                   <NumberField id="alza-expense-unit" label="Costo unitario" value={config.alzaCostoUnitarioClp} onChange={(value) => patch('alzaCostoUnitarioClp', value)} unit="CLP neto" integer reference="CREDITOALZA!C16" issue={issueFor('alzaCostoUnitarioClp')} />
                   <NumberField id="alza-down-payment" label="Pie" value={config.alzaPieClp} onChange={(value) => patch('alzaPieClp', value)} unit="CLP IVA incluido" integer reference="CREDITOALZA!C18" issue={issueFor('alzaPieClp')} />
@@ -637,9 +634,31 @@ export default function MantenedorPage() {
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     <Metric
-                      label={`Ahorro neto en ${preview.proyeccion.periodoAnios} años`}
+                      label="Energía sin proyecto"
+                      value={formatCLP(preview.proyeccion.costoEnergiaSinProyectoClp)}
+                      detail={`Lo que costaría la cuenta en ${preview.proyeccion.periodoAnios} años`}
+                    />
+                    <Metric
+                      label="Cuenta que se sigue pagando"
+                      value={formatCLP(preview.proyeccion.costoEnergiaConProyectoClp)}
+                      detail="Consumo que el sistema no alcanza a cubrir"
+                    />
+                    <Metric
+                      label="Ahorro en la cuenta"
+                      value={formatCLP(preview.proyeccion.ahorroCuentaClp)}
+                      detail="Autoconsumo: lo que deja de pagarse"
+                      tone="emerald"
+                    />
+                    <Metric
+                      label="Ingreso por inyección"
+                      value={formatCLP(preview.proyeccion.ingresoInyeccionClp)}
+                      detail="Excedentes vendidos a la red, no baja la cuenta"
+                      tone="amber"
+                    />
+                    <Metric
+                      label={`Beneficio neto en ${preview.proyeccion.periodoAnios} años`}
                       value={formatCLP(preview.proyeccion.ahorroAcumuladoClp)}
-                      detail="Incluye las reposiciones configuradas"
+                      detail={`Ahorro + inyección − ${formatCLP(preview.proyeccion.reposicionesClp)} de reposiciones`}
                       tone="emerald"
                     />
                     <Metric
@@ -648,12 +667,12 @@ export default function MantenedorPage() {
                       detail={`Tasa de descuento: ${((config.tasaDescuentoAnual) * 100).toLocaleString('es-CL', { maximumFractionDigits: 2 })}%`}
                       tone="sky"
                     />
-                    <Metric
-                      label="Energía sin proyecto"
-                      value={formatCLP(preview.proyeccion.costoEnergiaSinProyectoClp)}
-                      detail={`Costo acumulado en ${preview.proyeccion.periodoAnios} años`}
-                    />
                   </div>
+                  <p className="mt-3 text-xs leading-relaxed text-slate-500">
+                    Energía sin proyecto = cuenta que se sigue pagando + ahorro en la cuenta. El ingreso por
+                    inyección va aparte: es dinero que entra, no cuenta que baja. Por eso el beneficio neto
+                    puede superar el costo de la energía.
+                  </p>
                 </div>
               )}
             </SectionCard>

@@ -29,64 +29,7 @@ export type GeneracionMensual = [number, number, number, number, number, number,
 export type GeneracionPorZona = Record<Region, GeneracionMensual>;
 
 export type CategoriaPartidaKwp = 'materiales' | 'servicios';
-
-export interface PartidaCostoKwp {
-  id: string;
-  nombre: string;
-  categoria: CategoriaPartidaKwp;
-  costoNetoClpPorKwp: number;
-  activa: boolean;
-  referenciaExcel: string;
-}
-
-/**
- * Coeficientes que reemplazan las cantidades fijas de MAIN!C44:C52.
- * Las magnitudes físicas se calculan desde la potencia instalada; fases y
- * fijación siguen siendo categorías técnicas y por eso no se multiplican.
- */
-export interface VariablesVinculantesKwp {
-  canalizacionPanInvExteriorMPorKwp: number;
-  canalizacionPanInvSubterraneoMPorKwp: number;
-  canalizacionInvTabExteriorMPorKwp: number;
-  canalizacionInvTabSubterraneoMPorKwp: number;
-  canalizacionTabPcExteriorMPorKwp: number;
-  canalizacionTabPcSubterraneoMPorKwp: number;
-  canalizacionTabPcAereoMPorKwp: number;
-  proteccionGeneralAPorKwp: number;
-  mesasPorKwp: number;
-  redondeoCanalizacionM: number;
-  redondeoProteccionA: number;
-  fasesPredeterminadas: 1 | 3;
-  tipoFijacionTecho: string;
-}
-
-const DEFAULT_PARTIDAS_COSTO_KWP: PartidaCostoKwp[] = [
-  { id: 'estructura', nombre: 'Estructura y fijaciones', categoria: 'materiales', costoNetoClpPorKwp: 137_924 / 6.2, activa: true, referenciaExcel: 'CUBICADOR!G15:G28' },
-  { id: 'comunicacion', nombre: 'Comunicación y medición', categoria: 'materiales', costoNetoClpPorKwp: 51_000 / 6.2, activa: true, referenciaExcel: 'CUBICADOR!G29:G32' },
-  { id: 'cables-canalizacion', nombre: 'Cables y canalización', categoria: 'materiales', costoNetoClpPorKwp: 360_717.2605042017 / 6.2, activa: true, referenciaExcel: 'CUBICADOR!G33:G83' },
-  { id: 'tableros-protecciones', nombre: 'Tableros y protecciones', categoria: 'materiales', costoNetoClpPorKwp: 104_950 / 6.2, activa: true, referenciaExcel: 'CUBICADOR!G84:G101' },
-  { id: 'gestion-proyecto', nombre: 'Gestión del proyecto', categoria: 'servicios', costoNetoClpPorKwp: 277_594.1002949852 / 6.2, activa: true, referenciaExcel: 'CUBICADOR!G103' },
-  { id: 'instalacion', nombre: 'Instalación', categoria: 'servicios', costoNetoClpPorKwp: 130_000, activa: true, referenciaExcel: 'CUBICADOR!G104' },
-  { id: 'ingenieria-tramite', nombre: 'Ingeniería TE4 y conexión', categoria: 'servicios', costoNetoClpPorKwp: 312_499.1596638656 / 6.2, activa: true, referenciaExcel: 'CUBICADOR!G105' },
-  { id: 'puesta-marcha', nombre: 'Puesta en marcha, rotulación y logística', categoria: 'servicios', costoNetoClpPorKwp: 28_720 / 6.2, activa: true, referenciaExcel: 'CUBICADOR!G107,G116:G130' },
-];
-
-const DEFAULT_VARIABLES_VINCULANTES_KWP: VariablesVinculantesKwp = {
-  // Caso auditado del libro: 6,2 kWp, 20/0/10/0/1/0/0 m, 40 A y 4 mesas.
-  canalizacionPanInvExteriorMPorKwp: 20 / 6.2,
-  canalizacionPanInvSubterraneoMPorKwp: 0,
-  canalizacionInvTabExteriorMPorKwp: 10 / 6.2,
-  canalizacionInvTabSubterraneoMPorKwp: 0,
-  canalizacionTabPcExteriorMPorKwp: 1 / 6.2,
-  canalizacionTabPcSubterraneoMPorKwp: 0,
-  canalizacionTabPcAereoMPorKwp: 0,
-  proteccionGeneralAPorKwp: 40 / 6.2,
-  mesasPorKwp: 4 / 6.2,
-  redondeoCanalizacionM: 1,
-  redondeoProteccionA: 10,
-  fasesPredeterminadas: 1,
-  tipoFijacionTecho: 'Coplanar Tipo L',
-};
+export type TipoCalculoPartida = 'fijo-variable' | 'fijo-regional' | 'variable-regional';
 
 export const REGIONES: Region[] = [
   'De Arica', 'De Tarapacá', 'De Antofagasta', 'De Coquimbo',
@@ -94,6 +37,61 @@ export const REGIONES: Region[] = [
   'Del Ñuble', 'Del Biobío', 'De la Araucanía', 'De los Ríos',
   'De los Lagos', 'De Aysén',
 ];
+
+export type CostosRegionales = Record<Region, number>;
+
+export interface PartidaCostoKwp {
+  id: string;
+  nombre: string;
+  categoria: CategoriaPartidaKwp;
+  tipoCalculo: TipoCalculoPartida;
+  costoFijoNetoClp: number;
+  costoVariableNetoClpPorKwp: number;
+  costosRegionalesNeto: CostosRegionales | null;
+  activa: boolean;
+  referenciaExcel: string;
+}
+
+export interface ReglaInversorPorPaneles {
+  id: string;
+  minPaneles: number;
+  maxPaneles: number;
+  inversorId: string;
+  fases: 1 | 3;
+}
+
+/** Supuestos técnicos informativos. No vuelven a escalar las partidas de costo. */
+export interface VariablesVinculantesKwp {
+  proteccionGeneralAPorKwp: number;
+  mesasPorKwp: number;
+  redondeoProteccionA: number;
+  fasesPredeterminadas: 1 | 3;
+  tipoFijacionTecho: string;
+}
+
+function regional(defaultValue: number, overrides: Partial<CostosRegionales> = {}): CostosRegionales {
+  return Object.fromEntries(REGIONES.map((region) => [region, overrides[region] ?? defaultValue])) as CostosRegionales;
+}
+
+const DEFAULT_PARTIDAS_COSTO_KWP: PartidaCostoKwp[] = [
+  { id: 'estructura', nombre: 'Estructura y fijaciones', categoria: 'materiales', tipoCalculo: 'fijo-variable', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 33_568, costosRegionalesNeto: null, activa: true, referenciaExcel: 'CUBICADOR!G15:G28' },
+  { id: 'comunicacion', nombre: 'Comunicación y medición', categoria: 'materiales', tipoCalculo: 'fijo-variable', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 12_412, costosRegionalesNeto: null, activa: true, referenciaExcel: 'CUBICADOR!G29:G32' },
+  { id: 'cables-canalizacion', nombre: 'Cables y canalización', categoria: 'materiales', tipoCalculo: 'fijo-variable', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 87_791, costosRegionalesNeto: null, activa: true, referenciaExcel: 'CUBICADOR!G33:G83' },
+  { id: 'tableros-protecciones', nombre: 'Tableros y protecciones', categoria: 'materiales', tipoCalculo: 'fijo-variable', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 25_543, costosRegionalesNeto: null, activa: true, referenciaExcel: 'CUBICADOR!G84:G101' },
+  { id: 'puesta-marcha', nombre: 'Puesta en marcha, rotulación y logística', categoria: 'materiales', tipoCalculo: 'fijo-variable', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 6_088, costosRegionalesNeto: null, activa: true, referenciaExcel: 'CUBICADOR!G107,G116:G130' },
+  { id: 'gestion-proyecto', nombre: 'Gestión del proyecto', categoria: 'servicios', tipoCalculo: 'fijo-regional', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 0, costosRegionalesNeto: regional(777_600, { 'De Valparaíso': 305_594, Metropolitana: 277_594, "De O'Higgins": 305_594, 'Del Maule': 477_600, 'Del Ñuble': 677_600 }), activa: true, referenciaExcel: 'CUBICADOR!G103' },
+  { id: 'instalacion', nombre: 'Instalación', categoria: 'servicios', tipoCalculo: 'variable-regional', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 0, costosRegionalesNeto: regional(160_000, { 'De Coquimbo': 150_000, 'De Valparaíso': 145_000, Metropolitana: 130_000, "De O'Higgins": 150_000 }), activa: true, referenciaExcel: 'CUBICADOR!G104' },
+  { id: 'ingenieria-tramite', nombre: 'Ingeniería TE4 y conexión', categoria: 'servicios', tipoCalculo: 'fijo-regional', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 0, costosRegionalesNeto: regional(562_499, { 'De Coquimbo': 312_499, Metropolitana: 312_499, "De O'Higgins": 312_499, 'Del Maule': 312_499, 'Del Ñuble': 312_499 }), activa: true, referenciaExcel: 'CUBICADOR!G105' },
+];
+
+const DEFAULT_VARIABLES_VINCULANTES_KWP: VariablesVinculantesKwp = {
+  // Caso auditado del libro: 6,2 kWp, 40 A y 4 mesas.
+  proteccionGeneralAPorKwp: 40 / 6.2,
+  mesasPorKwp: 4 / 6.2,
+  redondeoProteccionA: 10,
+  fasesPredeterminadas: 1,
+  tipoFijacionTecho: 'Coplanar Tipo L',
+};
 
 export const GENERACION_POR_ZONA: GeneracionPorZona = {
   'De Arica':        [131,124,147,136,127,107,107,111,119,136,130,130],
@@ -122,6 +120,8 @@ export interface ConfigCotizador {
   limiteAutoconsumo: number;
   proyeccionConsumo: number;
   maxPanelesMonofasico: number;
+  /** MAIN!C31 sube la cantidad de paneles al par siguiente. */
+  redondearPanelesAPar: boolean;
   minPaneles: number;
 
   // PAN / INV
@@ -133,6 +133,7 @@ export interface ConfigCotizador {
   catalogoInversores: InverterCatalogItem[];
   panelActivoId: string;
   inversorActivoId: string;
+  reglasInversorPorPaneles: ReglaInversorPorPaneles[];
 
   // Costos generales. Paneles e inversor se suman desde sus catálogos.
   partidasCostoKwp: PartidaCostoKwp[];
@@ -167,8 +168,8 @@ export interface ConfigCotizador {
   alzaMesesGracia: number;
   cuotasALZA: number;
   alzaFinancialFee: number;
-  alzaGarantiaCapital: number;
-  alzaGarantiaGastos: number;
+  /** Garantía como % del TOTAL del proyecto financiado (CREDITOALZA!E14). */
+  alzaGarantiaPctTotal: number;
   alzaCantidadGastos: number;
   alzaCostoUnitarioClp: number;
   alzaPieClp: number;
@@ -184,13 +185,14 @@ const CAPACIDAD_REFERENCIA_KWP = 3.72;
 const EQUIPOS_REFERENCIA_POR_KWP = EQUIPOS_REFERENCIA_NETO / CAPACIDAD_REFERENCIA_KWP;
 
 export const CONFIG_DEFAULT: ConfigCotizador = {
-  schemaVersion: 8,
+  schemaVersion: 10,
   precioKwhClp: 250,
-  precioNudoInyeccionClp: 105.7033,
-  ivaInyeccion: 1.19,
+  precioNudoInyeccionClp: 125.786927,
+  ivaInyeccion: 1,
   limiteAutoconsumo: 0.5,
   proyeccionConsumo: 1,
   maxPanelesMonofasico: 20,
+  redondearPanelesAPar: true,
   minPaneles: 1,
 
   panelPotenciaW: 620,
@@ -201,13 +203,19 @@ export const CONFIG_DEFAULT: ConfigCotizador = {
   catalogoInversores: DEFAULT_INVERTERS,
   panelActivoId: 'panel-ulica-620-w',
   inversorActivoId: 'inverter-huawei-hibrido-6kw',
+  reglasInversorPorPaneles: [
+    { id: 'mono-1-7', minPaneles: 1, maxPaneles: 7, inversorId: 'inverter-huawei-hibrido-3kw', fases: 1 },
+    { id: 'mono-8-10', minPaneles: 8, maxPaneles: 10, inversorId: 'inverter-huawei-hibrido-5kw', fases: 1 },
+    { id: 'mono-11-12', minPaneles: 11, maxPaneles: 12, inversorId: 'inverter-huawei-hibrido-6kw', fases: 1 },
+    { id: 'mono-13-20', minPaneles: 13, maxPaneles: 20, inversorId: 'inverter-huawei-hibrido-8kw', fases: 1 },
+  ],
 
   // Base reconciliada contra CUBICADOR para el caso patrón de 6,2 kWp.
   // Paneles e inversor se cobran aparte para no duplicar equipos físicos.
   partidasCostoKwp: DEFAULT_PARTIDAS_COSTO_KWP,
   variablesVinculantesKwp: DEFAULT_VARIABLES_VINCULANTES_KWP,
-  costoMaterialesGeneralesPorKwpNeto: 105_579.23556519382,
-  costoServiciosPorKwpNeto: 229_808.5903159437,
+  costoMaterialesGeneralesPorKwpNeto: 165_402,
+  costoServiciosPorKwpNeto: 0,
   // Margen efectivo del caso auditado (CUBICADOR!L6). MAIN!C26 mantiene 19%
   // como objetivo, pero los precios unitarios redondeados producen 19,4089%.
   margen: 0.19408932625004194,
@@ -238,8 +246,7 @@ export const CONFIG_DEFAULT: ConfigCotizador = {
   alzaMesesGracia: 3,
   cuotasALZA: 300,
   alzaFinancialFee: 0.238,
-  alzaGarantiaCapital: 0.119,
-  alzaGarantiaGastos: 0.1,
+  alzaGarantiaPctTotal: 0.1,
   alzaCantidadGastos: 6,
   alzaCostoUnitarioClp: 41_000,
   alzaPieClp: 0,
@@ -269,19 +276,41 @@ export function getFactorGeneracion(cfg: ConfigCotizador): number {
     + (cfg.precioKwhClp * (1 - cfg.limiteAutoconsumo)) / inyeccion;
 }
 
-export function costoGeneralPorKwpNeto(cfg: ConfigCotizador): number {
+/**
+ * Costo neto de todas las partidas activas para un caso de referencia.
+ * Suma fijo + variable + regional: una configuración solo-fija (variable 0)
+ * es válida y no debe leerse como estructura de costo vacía.
+ */
+export function costoGeneralPorKwpNeto(
+  cfg: ConfigCotizador,
+  capacidadKwp = 1,
+  region: Region = 'Metropolitana',
+): number {
   return cfg.partidasCostoKwp
     .filter((partida) => partida.activa)
-    .reduce((total, partida) => total + partida.costoNetoClpPorKwp, 0);
+    .reduce((total, partida) => total + costoPartidaNeto(partida, capacidadKwp, region), 0);
 }
 
 export function costoPartidasPorCategoria(
   partidas: PartidaCostoKwp[],
   categoria: CategoriaPartidaKwp,
+  capacidadKwp = 1,
+  region: Region = 'Metropolitana',
 ): number {
   return partidas
     .filter((partida) => partida.activa && partida.categoria === categoria)
-    .reduce((total, partida) => total + partida.costoNetoClpPorKwp, 0);
+    .reduce((total, partida) => total + costoPartidaNeto(partida, capacidadKwp, region), 0);
+}
+
+export function costoPartidaNeto(
+  partida: PartidaCostoKwp,
+  capacidadKwp: number,
+  region: Region,
+): number {
+  const regional = partida.costosRegionalesNeto?.[region] ?? 0;
+  if (partida.tipoCalculo === 'fijo-regional') return regional;
+  if (partida.tipoCalculo === 'variable-regional') return regional * capacidadKwp;
+  return partida.costoFijoNetoClp + partida.costoVariableNetoClpPorKwp * capacidadKwp;
 }
 
 export function withSyncedCostItems(
@@ -291,8 +320,8 @@ export function withSyncedCostItems(
   return {
     ...config,
     partidasCostoKwp,
-    costoMaterialesGeneralesPorKwpNeto: costoPartidasPorCategoria(partidasCostoKwp, 'materiales'),
-    costoServiciosPorKwpNeto: costoPartidasPorCategoria(partidasCostoKwp, 'servicios'),
+    costoMaterialesGeneralesPorKwpNeto: partidasCostoKwp.filter((item) => item.activa && item.categoria === 'materiales').reduce((sum, item) => sum + item.costoVariableNetoClpPorKwp, 0),
+    costoServiciosPorKwpNeto: partidasCostoKwp.filter((item) => item.activa && item.categoria === 'servicios').reduce((sum, item) => sum + item.costoVariableNetoClpPorKwp, 0),
   };
 }
 
@@ -316,12 +345,15 @@ export function calcularCreditoAlza(precioProyectoIva: number, cfg: ConfigCotiza
   const valorPlantaNeto = (precioProyectoIva - cfg.alzaPieClp) / cfg.ivaVenta;
   const gastosFinancieros = cfg.alzaCantidadGastos * cfg.alzaCostoUnitarioClp * cfg.ivaVenta;
   const fee = cfg.alzaFinancialFee;
-  const garantiaNumerador =
-    cfg.alzaGarantiaCapital * valorPlantaNeto
-    + cfg.alzaGarantiaGastos * gastosFinancieros
-    + cfg.alzaGarantiaCapital * fee * valorPlantaNeto
-    + cfg.alzaGarantiaGastos * gastosFinancieros * fee;
-  const garantiaDenominador = 1 - cfg.alzaGarantiaCapital - cfg.alzaGarantiaCapital * fee;
+  // La garantía del libro NO son dos parámetros. CREDITOALZA!C14 se ve como
+  //   (0,119·V + 0,1·Gastos + 0,119·fee·V + 0,1·fee·Gastos) / (0,881 - 0,119·fee)
+  // pero CREDITOALZA!E14 delata el diseño: garantía ≡ 10% del total del proyecto.
+  // El 0,119 es simplemente 0,10 × 1,19 (el IVA). Despejando G = r·Total con
+  //   Total = (iva·(V + G) + Gastos)·(1 + fee)
+  // queda una sola incógnita y un solo parámetro de negocio: r.
+  const r = cfg.alzaGarantiaPctTotal;
+  const garantiaNumerador = r * (1 + fee) * (cfg.ivaVenta * valorPlantaNeto + gastosFinancieros);
+  const garantiaDenominador = 1 - r * cfg.ivaVenta * (1 + fee);
   const garantia = garantiaDenominador > 0 ? garantiaNumerador / garantiaDenominador : Number.POSITIVE_INFINITY;
   const ivaProyecto = (valorPlantaNeto + garantia) * (cfg.ivaVenta - 1);
   const baseFinanciada = valorPlantaNeto + garantia + gastosFinancieros + ivaProyecto;
@@ -372,14 +404,15 @@ function normalizePartidasCosto(
 ): PartidaCostoKwp[] {
   const scaleDefaults = (categoria: CategoriaPartidaKwp, target: number): PartidaCostoKwp[] => {
     const defaults = DEFAULT_PARTIDAS_COSTO_KWP.filter((item) => item.categoria === categoria);
-    const base = defaults.reduce((total, item) => total + item.costoNetoClpPorKwp, 0);
+    const base = defaults.reduce((total, item) => total + item.costoVariableNetoClpPorKwp, 0);
+    if (base <= 0) return defaults.map((item) => ({ ...item, costosRegionalesNeto: item.costosRegionalesNeto ? { ...item.costosRegionalesNeto } : null }));
     let assigned = 0;
     return defaults.map((item, index) => {
       const amount = index === defaults.length - 1
         ? Math.max(0, target - assigned)
-        : Math.max(0, Math.round(target * item.costoNetoClpPorKwp / base));
+        : Math.max(0, Math.round(target * item.costoVariableNetoClpPorKwp / base));
       assigned += amount;
-      return { ...item, costoNetoClpPorKwp: amount };
+      return { ...item, costoVariableNetoClpPorKwp: amount };
     });
   };
 
@@ -392,12 +425,30 @@ function normalizePartidasCosto(
 
   const normalized = value.map((item, index): PartidaCostoKwp | null => {
     if (!isRecord(item)) return null;
-    const categoria = item.categoria === 'servicios' ? 'servicios' : 'materiales';
+    const fallback = DEFAULT_PARTIDAS_COSTO_KWP.find((entry) => entry.id === item.id)
+      ?? DEFAULT_PARTIDAS_COSTO_KWP[index % DEFAULT_PARTIDAS_COSTO_KWP.length];
+    const categoria = item.id === 'puesta-marcha' ? 'materiales' : item.categoria === 'servicios' ? 'servicios' : 'materiales';
+    const tipoCalculo = item.tipoCalculo === 'fijo-regional' || item.tipoCalculo === 'variable-regional'
+      ? item.tipoCalculo
+      : fallback.tipoCalculo;
+    const rawRegional = isRecord(item.costosRegionalesNeto) ? item.costosRegionalesNeto : null;
+    const costosRegionalesNeto = tipoCalculo === 'fijo-variable' ? null : Object.fromEntries(
+      REGIONES.map((region) => [region, typeof rawRegional?.[region] === 'number'
+        ? rawRegional[region]
+        : fallback.costosRegionalesNeto?.[region] ?? 0]),
+    ) as CostosRegionales;
     return {
       id: typeof item.id === 'string' ? item.id.trim().slice(0, 80) : `partida-${index + 1}`,
       nombre: typeof item.nombre === 'string' ? item.nombre.trim().slice(0, 160) : '',
       categoria,
-      costoNetoClpPorKwp: typeof item.costoNetoClpPorKwp === 'number' ? item.costoNetoClpPorKwp : Number.NaN,
+      tipoCalculo,
+      costoFijoNetoClp: typeof item.costoFijoNetoClp === 'number' ? item.costoFijoNetoClp : fallback.costoFijoNetoClp,
+      costoVariableNetoClpPorKwp: typeof item.costoVariableNetoClpPorKwp === 'number'
+        ? item.costoVariableNetoClpPorKwp
+        : typeof item.costoNetoClpPorKwp === 'number'
+          ? item.costoNetoClpPorKwp
+          : fallback.costoVariableNetoClpPorKwp,
+      costosRegionalesNeto,
       activa: item.activa !== false,
       referenciaExcel: typeof item.referenciaExcel === 'string' ? item.referenciaExcel.trim().slice(0, 180) : '',
     };
@@ -422,6 +473,8 @@ export function normalizeConfig(value: unknown): ConfigCotizador {
   const raw = isRecord(value) ? value : {};
   const migratingToV7 = Number(raw.schemaVersion ?? 0) < 7;
   const migratingToV8 = Number(raw.schemaVersion ?? 0) < 8;
+  const migratingToV9 = Number(raw.schemaVersion ?? 0) < 9;
+  const migratingToV10 = Number(raw.schemaVersion ?? 0) < 10;
   const normalized: Record<string, unknown> = { ...CONFIG_DEFAULT };
   for (const [key, defaultValue] of Object.entries(CONFIG_DEFAULT)) {
     if (!(key in raw)) continue;
@@ -433,7 +486,8 @@ export function normalizeConfig(value: unknown): ConfigCotizador {
         ? incoming.map((item) => typeof item === 'number' ? item : Number.NaN)
         : CONFIG_DEFAULT.mpcAnualClpKwh;
     }
-    else if (key === 'partidasCostoKwp' || key === 'variablesVinculantesKwp') continue;
+    else if (key === 'partidasCostoKwp' || key === 'variablesVinculantesKwp' || key === 'reglasInversorPorPaneles') continue;
+    else if (typeof defaultValue === 'boolean') normalized[key] = typeof incoming === 'boolean' ? incoming : defaultValue;
     else if (typeof defaultValue === 'number') normalized[key] = typeof incoming === 'number' ? incoming : Number.NaN;
     else if (typeof defaultValue === 'string') normalized[key] = typeof incoming === 'string' ? incoming : '';
   }
@@ -487,9 +541,42 @@ export function normalizeConfig(value: unknown): ConfigCotizador {
     merged.costoMaterialesGeneralesPorKwpNeto,
     merged.costoServiciosPorKwpNeto,
   );
+  if (migratingToV10 && typeof raw.alzaGarantiaCapital === 'number' && raw.alzaGarantiaCapital > 0) {
+    // El antiguo "garantía sobre capital" era r × IVA. Recuperamos r.
+    const iva = typeof raw.ivaVenta === 'number' && raw.ivaVenta > 0 ? raw.ivaVenta : CONFIG_DEFAULT.ivaVenta;
+    merged.alzaGarantiaPctTotal = raw.alzaGarantiaCapital / iva;
+  }
+  if (migratingToV9) {
+    const legacyItems = Array.isArray(raw.partidasCostoKwp) ? raw.partidasCostoKwp : [];
+    const legacyById = new Map(legacyItems.filter(isRecord).map((item) => [item.id, item]));
+    merged.partidasCostoKwp = DEFAULT_PARTIDAS_COSTO_KWP.map((item) => {
+      if (item.tipoCalculo !== 'fijo-variable') return { ...item, costosRegionalesNeto: item.costosRegionalesNeto ? { ...item.costosRegionalesNeto } : null };
+      const legacy = legacyById.get(item.id);
+      const variable = legacy && typeof legacy.costoNetoClpPorKwp === 'number'
+        ? legacy.costoNetoClpPorKwp
+        : item.costoVariableNetoClpPorKwp;
+      return { ...item, costoVariableNetoClpPorKwp: variable, activa: legacy?.activa !== false };
+    });
+    merged.precioNudoInyeccionClp = typeof raw.precioNudoInyeccionClp === 'number'
+      ? raw.precioNudoInyeccionClp * (typeof raw.ivaInyeccion === 'number' ? raw.ivaInyeccion : 1.19)
+      : CONFIG_DEFAULT.precioNudoInyeccionClp;
+    merged.ivaInyeccion = 1;
+  }
   merged.variablesVinculantesKwp = normalizeVariablesVinculantes(raw.variablesVinculantesKwp);
-  merged.costoMaterialesGeneralesPorKwpNeto = costoPartidasPorCategoria(merged.partidasCostoKwp, 'materiales');
-  merged.costoServiciosPorKwpNeto = costoPartidasPorCategoria(merged.partidasCostoKwp, 'servicios');
+  merged.reglasInversorPorPaneles = Array.isArray(raw.reglasInversorPorPaneles) && !migratingToV9
+    ? raw.reglasInversorPorPaneles.map((rule, index): ReglaInversorPorPaneles | null => {
+      if (!isRecord(rule)) return null;
+      return {
+        id: typeof rule.id === 'string' ? rule.id.slice(0, 80) : `regla-${index + 1}`,
+        minPaneles: typeof rule.minPaneles === 'number' ? rule.minPaneles : Number.NaN,
+        maxPaneles: typeof rule.maxPaneles === 'number' ? rule.maxPaneles : Number.NaN,
+        inversorId: typeof rule.inversorId === 'string' ? rule.inversorId.slice(0, 100) : '',
+        fases: rule.fases === 3 ? 3 : 1,
+      };
+    }).filter((rule): rule is ReglaInversorPorPaneles => rule !== null)
+    : CONFIG_DEFAULT.reglasInversorPorPaneles.map((rule) => ({ ...rule }));
+  merged.costoMaterialesGeneralesPorKwpNeto = merged.partidasCostoKwp.filter((item) => item.activa && item.categoria === 'materiales').reduce((sum, item) => sum + item.costoVariableNetoClpPorKwp, 0);
+  merged.costoServiciosPorKwpNeto = merged.partidasCostoKwp.filter((item) => item.activa && item.categoria === 'servicios').reduce((sum, item) => sum + item.costoVariableNetoClpPorKwp, 0);
   merged.catalogoPaneles = normalizePanels(merged.catalogoPaneles);
   merged.catalogoInversores = normalizeInverters(merged.catalogoInversores);
   if (migratingToV8) {
@@ -542,6 +629,7 @@ export function getInversorParaSistema(
   config: ConfigCotizador,
   capacidadKwp: number,
   fases: 1 | 3,
+  numeroPaneles?: number,
 ): InverterCatalogItem {
   const active = config.catalogoInversores.filter((item) => (
     item.estado === 'active'
@@ -549,6 +637,13 @@ export function getInversorParaSistema(
     && item.linea.toLocaleLowerCase('es-CL').includes('on-grid')
     && item.fases === fases
   ));
+  if (numeroPaneles != null) {
+    const rule = config.reglasInversorPorPaneles.find((item) => (
+      item.fases === fases && numeroPaneles >= item.minPaneles && numeroPaneles <= item.maxPaneles
+    ));
+    const ranged = active.find((item) => item.id === rule?.inversorId);
+    if (ranged) return ranged;
+  }
   const eligible = active.filter((item) => item.potenciaDcKw >= capacidadKwp);
   const preferred = eligible.find((item) => item.id === config.inversorActivoId);
   if (preferred) return preferred;

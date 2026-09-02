@@ -31,7 +31,7 @@ export function validateRawConfigPayload(configValue: unknown, generationValue: 
       issues.push({ field: key, message: `${key} debe ser un número válido.`, severity: 'error' });
     }
   }
-  for (const key of ['catalogoPaneles', 'catalogoInversores', 'partidasCostoKwp', 'mpcAnualClpKwh']) {
+  for (const key of ['catalogoPaneles', 'catalogoInversores', 'partidasCostoKwp', 'reglasInversorPorPaneles', 'mpcAnualClpKwh']) {
     if (!Array.isArray(config[key]) || config[key].length === 0) {
       issues.push({ field: key, message: `${key} debe contener datos.`, severity: 'error' });
     }
@@ -126,8 +126,12 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
     }
     partidasIds.add(partida.id);
     partidasNombres.add(normalizedName);
-    nestedRange(field, partida.costoNetoClpPorKwp, 0, 100_000_000, partida.nombre || 'Partida por kWp');
-    if (partida.activa && partida.costoNetoClpPorKwp === 0) {
+    nestedRange(field, partida.costoFijoNetoClp, 0, 100_000_000, `${partida.nombre || 'Partida'} fija`);
+    nestedRange(field, partida.costoVariableNetoClpPorKwp, 0, 100_000_000, `${partida.nombre || 'Partida'} variable`);
+    if (partida.tipoCalculo !== 'fijo-variable') {
+      for (const region of REGIONES) nestedRange(field, partida.costosRegionalesNeto?.[region] ?? Number.NaN, 0, 100_000_000, `${partida.nombre || 'Partida'} en ${region}`);
+    }
+    if (partida.activa && partida.tipoCalculo === 'fijo-variable' && partida.costoFijoNetoClp === 0 && partida.costoVariableNetoClpPorKwp === 0) {
       issues.push({ field, message: `${partida.nombre} está activa con costo cero.`, severity: 'warning' });
     }
   }
@@ -143,20 +147,12 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
 
   const vinculantes = config.variablesVinculantesKwp;
   const coeficientes: Array<[keyof typeof vinculantes, number, string]> = [
-    ['canalizacionPanInvExteriorMPorKwp', vinculantes.canalizacionPanInvExteriorMPorKwp, 'Canalización PAN–INV exterior por kWp'],
-    ['canalizacionPanInvSubterraneoMPorKwp', vinculantes.canalizacionPanInvSubterraneoMPorKwp, 'Canalización PAN–INV subterránea por kWp'],
-    ['canalizacionInvTabExteriorMPorKwp', vinculantes.canalizacionInvTabExteriorMPorKwp, 'Canalización INV–TAB exterior por kWp'],
-    ['canalizacionInvTabSubterraneoMPorKwp', vinculantes.canalizacionInvTabSubterraneoMPorKwp, 'Canalización INV–TAB subterránea por kWp'],
-    ['canalizacionTabPcExteriorMPorKwp', vinculantes.canalizacionTabPcExteriorMPorKwp, 'Canalización TAB–PC exterior por kWp'],
-    ['canalizacionTabPcSubterraneoMPorKwp', vinculantes.canalizacionTabPcSubterraneoMPorKwp, 'Canalización TAB–PC subterránea por kWp'],
-    ['canalizacionTabPcAereoMPorKwp', vinculantes.canalizacionTabPcAereoMPorKwp, 'Canalización TAB–PC aérea por kWp'],
     ['proteccionGeneralAPorKwp', vinculantes.proteccionGeneralAPorKwp, 'Protección general por kWp'],
     ['mesasPorKwp', vinculantes.mesasPorKwp, 'Mesas por kWp'],
   ];
   for (const [key, value, label] of coeficientes) {
     nestedRange(`variablesVinculantesKwp.${key}`, value, 0, 10_000, label);
   }
-  nestedRange('variablesVinculantesKwp.redondeoCanalizacionM', vinculantes.redondeoCanalizacionM, 0.01, 100, 'Redondeo de canalización');
   nestedRange('variablesVinculantesKwp.redondeoProteccionA', vinculantes.redondeoProteccionA, 1, 1_000, 'Redondeo de protección');
   if (!vinculantes.tipoFijacionTecho.trim()) {
     issues.push({ field: 'variablesVinculantesKwp.tipoFijacionTecho', message: 'El tipo de fijación no puede quedar vacío.', severity: 'error' });
@@ -164,7 +160,7 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
 
   finiteRange(issues, 'precioKwhClp', config.precioKwhClp, 1, 10_000, 'Precio de consumo');
   finiteRange(issues, 'precioNudoInyeccionClp', config.precioNudoInyeccionClp, 0.01, 10_000, 'Precio de nudo');
-  finiteRange(issues, 'ivaInyeccion', config.ivaInyeccion, 1, 2, 'Factor IVA de inyección');
+  finiteRange(issues, 'ivaInyeccion', config.ivaInyeccion, 1, 1, 'Factor interno de inyección');
   finiteRange(issues, 'limiteAutoconsumo', config.limiteAutoconsumo, 0, 1, 'Límite de autoconsumo');
   finiteRange(issues, 'proyeccionConsumo', config.proyeccionConsumo, 0.01, 10, 'Proyección de consumo');
   finiteRange(issues, 'panelPotenciaW', config.panelPotenciaW, 100, 1_500, 'Potencia del panel');
@@ -204,8 +200,7 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
   finiteRange(issues, 'alzaMesesGracia', config.alzaMesesGracia, 0, 60, 'Meses de gracia ALZA');
   finiteRange(issues, 'cuotasALZA', config.cuotasALZA, 1, 600, 'Plazo ALZA');
   finiteRange(issues, 'alzaFinancialFee', config.alzaFinancialFee, 0, 1, 'Fee ALZA');
-  finiteRange(issues, 'alzaGarantiaCapital', config.alzaGarantiaCapital, 0, 0.8, 'Garantía ALZA sobre capital');
-  finiteRange(issues, 'alzaGarantiaGastos', config.alzaGarantiaGastos, 0, 0.8, 'Garantía ALZA sobre gastos');
+  finiteRange(issues, 'alzaGarantiaPctTotal', config.alzaGarantiaPctTotal, 0, 0.5, 'Garantía ALZA (% del total)');
   finiteRange(issues, 'alzaCantidadGastos', config.alzaCantidadGastos, 0, 10_000, 'Cantidad de gastos ALZA');
   finiteRange(issues, 'alzaCostoUnitarioClp', config.alzaCostoUnitarioClp, 0, 100_000_000, 'Costo unitario ALZA');
   finiteRange(issues, 'alzaPieClp', config.alzaPieClp, 0, 100_000_000, 'Pie ALZA');
@@ -243,6 +238,25 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
   }
   if (config.minPaneles > config.maxPanelesMonofasico) {
     issues.push({ field: 'minPaneles', message: 'El mínimo no puede superar el máximo monofásico.', severity: 'error' });
+  }
+  const monoRules = [...config.reglasInversorPorPaneles].filter((rule) => rule.fases === 1).sort((a, b) => a.minPaneles - b.minPaneles);
+  let expectedPanel = config.minPaneles;
+  for (const rule of monoRules) {
+    const field = `reglasInversorPorPaneles.${rule.id}`;
+    if (!Number.isInteger(rule.minPaneles) || !Number.isInteger(rule.maxPaneles) || rule.minPaneles > rule.maxPaneles) {
+      issues.push({ field, message: 'Cada rango de inversor debe usar límites enteros y ordenados.', severity: 'error' });
+    }
+    if (rule.minPaneles !== expectedPanel) {
+      issues.push({ field, message: rule.minPaneles < expectedPanel ? 'Los rangos de inversor no pueden solaparse.' : `Falta cubrir el panel ${expectedPanel}.`, severity: 'error' });
+    }
+    const inverter = config.catalogoInversores.find((item) => item.id === rule.inversorId);
+    if (!inverter || inverter.estado !== 'active' || !inverter.stock || inverter.fases !== rule.fases) {
+      issues.push({ field, message: 'El rango debe apuntar a un inversor activo, disponible y de las mismas fases.', severity: 'error' });
+    }
+    expectedPanel = Math.max(expectedPanel, rule.maxPaneles + 1);
+  }
+  if (expectedPanel <= config.maxPanelesMonofasico) {
+    issues.push({ field: 'reglasInversorPorPaneles', message: `Los rangos deben cubrir hasta ${config.maxPanelesMonofasico} paneles.`, severity: 'error' });
   }
   if (config.alzaMesesGracia >= config.cuotasALZA) {
     issues.push({ field: 'alzaMesesGracia', message: 'Los meses de gracia deben ser menores que el plazo ALZA.', severity: 'error' });

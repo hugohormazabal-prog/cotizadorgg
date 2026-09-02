@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Archive, Check, Pencil, Plus, RotateCcw, Search, Star, X } from 'lucide-react';
-import type { ConfigCotizador } from '@/lib/config';
+import type { ConfigCotizador, ReglaInversorPorPaneles } from '@/lib/config';
 import type { EquipmentStatus, InverterCatalogItem, PanelCatalogItem } from '@/lib/equipmentCatalog';
 import { formatCLP } from '@/lib/estimaciones';
 
@@ -88,6 +88,14 @@ export function EquipmentCatalogManager({ config, onChange }: { config: ConfigCo
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState('');
   const [notice, setNotice] = useState('');
+  const activeMonoInverters = config.catalogoInversores.filter((item) => item.estado === 'active' && item.stock && item.fases === 1);
+
+  function updateRange(id: string, patch: Partial<ReglaInversorPorPaneles>): void {
+    onChange({
+      ...config,
+      reglasInversorPorPaneles: config.reglasInversorPorPaneles.map((rule) => rule.id === id ? { ...rule, ...patch } : rule),
+    });
+  }
 
   const items: Equipment[] = kind === 'panels' ? config.catalogoPaneles : config.catalogoInversores;
   const defaultId = kind === 'panels' ? config.panelActivoId : config.inversorActivoId;
@@ -269,6 +277,22 @@ export function EquipmentCatalogManager({ config, onChange }: { config: ConfigCo
         })}
         {filtered.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 xl:col-span-2">No hay equipos que coincidan con la búsqueda.</div>}
       </div>
+
+      {kind === 'inverters' && (
+        <div className="border-t border-slate-200 p-4 sm:p-6">
+          <h3 className="font-bold text-slate-950">Activación por cantidad de paneles</h3>
+          <p className="mt-1 text-sm text-slate-600">El inversor residencial se elige por estos rangos, independientemente de la potencia individual del panel.</p>
+          <div className="mt-4 space-y-3">
+            {config.reglasInversorPorPaneles.filter((rule) => rule.fases === 1).map((rule) => (
+              <div key={rule.id} className="grid gap-3 rounded-2xl border border-slate-200 p-4 sm:grid-cols-[120px_120px_minmax(0,1fr)] sm:items-end">
+                <FormField label="Desde"><NumberInput value={rule.minPaneles} min={1} step={1} onChange={(value) => updateRange(rule.id, { minPaneles: value ?? 1 })} /></FormField>
+                <FormField label="Hasta"><NumberInput value={rule.maxPaneles} min={1} step={1} onChange={(value) => updateRange(rule.id, { maxPaneles: value ?? 1 })} /></FormField>
+                <FormField label="Inversor"><select className={inputClass()} value={rule.inversorId} onChange={(event) => updateRange(rule.id, { inversorId: event.target.value })}>{activeMonoInverters.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></FormField>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {editing && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="equipment-editor-title">

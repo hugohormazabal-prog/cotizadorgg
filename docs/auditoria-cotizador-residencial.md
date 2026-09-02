@@ -11,42 +11,36 @@ Fecha: 31 de agosto de 2026.
 
 ## Caso patrón automatizado
 
-Caso residencial monofásico, Región Metropolitana y cuenta de $120.000/mes:
+El caso residencial monofásico, Región Metropolitana y cuenta de $120.000/mes se conserva como regresión de dimensionamiento. Desde el esquema 9, el inversor y los costos se calculan con las nuevas reglas comerciales solicitadas, por lo que ya no se comparan contra el precio histórico del Excel.
 
-| Resultado | Excel | Motor web v7 |
+| Resultado | Excel de referencia | Motor web v9 |
 |---|---:|---:|
 | Paneles / potencia | 10 × 620 W / 6,2 kWp | 10 × 620 W / 6,2 kWp |
-| Inversor | Huawei híbrido 6 kW | Huawei híbrido 6 kW |
+| Inversor | Huawei híbrido 6 kW | Huawei híbrido 5 kW por tramo 8–10 paneles |
 | Generación anual | 8.878,4 kWh | 8.878 kWh mostrados |
 | Autoconsumo / inyección | 2.880 / 5.998,4 kWh | 2.880 / 5.998 kWh mostrados |
 | Ahorro año 1 | $1.474.520,30 | $1.474.520 |
-| Precio proyecto | $5.179.000 | $5.179.000 |
-| Payback simple | 3,5123 años | 3,5123 años |
-| Mercado Pago | $5.893.000 / $491.083 × 12 | $5.893.000 / $491.083 × 12 |
-| Santander | $127.645,83 × 48 | $127.646 × 48 |
-| ALZA | $7.944.398,85 / $53.026,07 / 1,29823 UF | mismos valores antes del redondeo visible |
-| Ahorro neto proyectado | $47.524.830 | $47.524.830 |
-| VAN corregido a 25 años | $42.345.830 | $42.345.830 |
+| Precio, financiamiento y payback | Modelo anterior por kWp | Recalculados desde partidas fijas/variables y costos regionales |
+| ALZA y proyección | Fórmulas auditadas | Sin cambios de fórmula |
 
 La regresión se ejecuta con `npm run test:integrity`.
 
 ## Correcciones del motor
 
-1. La selección del inversor usa un SKU activo, con stock, línea On-Grid, fases compatibles y capacidad DC suficiente. Nombre, potencia y costo provienen siempre del mismo equipo.
-2. Las partidas de estructura, canalización y protecciones se vinculan a sus coeficientes técnicos. Cambiar metros, mesas o amperes modifica cantidad, costo y precio; el caso base conserva el valor reconciliado.
-3. Los costos por kWp se recalibraron desde los grupos activos de `CUBICADOR`, separando equipos físicos de estructura, comunicación, cables, tableros y servicios.
-4. Mercado Pago usa sus comisiones de 6,99% y 3,19%, ambas con IVA; Santander mantiene 13% con IVA. Ambos totales se redondean hacia arriba a miles.
-5. ALZA conserva la fórmula exacta de garantía, gastos, fee, gracia, PMT y conversión a UF.
-6. La proyección usa degradación lineal, IPC, variación MPC anual, reposiciones en periodos 11 y 21, y descuento desde el periodo cero.
-7. El PDF y el gráfico consumen la proyección real del motor; ya no multiplican ahorro año 1 por 25 ni vuelven a inventar marca/potencia de inversor.
-8. Las escrituras del mantenedor se validan antes de normalizar, evitando reemplazar silenciosamente datos dañados por valores iniciales.
+1. La selección residencial del inversor usa tramos configurables por cantidad de paneles: 1–7 → 3 kW, 8–10 → 5 kW, 11–12 → 6 kW y 13–20 → 8 kW. El panel 12 queda en el tramo de 6 kW para evitar el solapamiento de la conversación fuente.
+2. Se eliminó la entrada de canalizaciones y el segundo factor que volvía a escalar estructura, cables y tableros. Los supuestos técnicos ya no modifican las partidas de costo.
+3. Estructura, comunicación, cables/canalización, tableros/protecciones y puesta en marcha son materiales, cada uno con monto fijo por proyecto más monto variable por kWp.
+4. Gestión del proyecto e Ingeniería TE4/conexión son costos fijos por región. Instalación es costo variable por kWp y región. Los valores iniciales provienen de la tabla regional de `SERVBACK`.
+5. El precio de inyección se edita y consume como un único valor IVA incluido; no se vuelve a multiplicar por IVA.
+6. Mercado Pago, Santander, ALZA y la proyección conservan las fórmulas auditadas anteriormente.
+7. Las escrituras del mantenedor validan cobertura continua, ausencia de solapamientos y vínculo con inversores activos.
 
 ## Configuración expuesta
 
-- Energía: tarifa, precio de nudo, IVA de inyección, autoconsumo y proyección de consumo.
-- Dimensionamiento: catálogos de paneles e inversores, selección preferida, mínimo y tope monofásico.
-- Variables por kWp: siete canalizaciones, protección, mesas, reglas de redondeo, fases y fijación.
-- Precio: ocho partidas netas por kWp, margen efectivo, IVA y redondeo.
+- Energía: tarifa, precio de inyección IVA incluido, autoconsumo y proyección de consumo.
+- Dimensionamiento: catálogos, rangos de inversor por cantidad de paneles, mínimo y tope monofásico.
+- Partidas y costos: cinco materiales con fijo + variable/kWp y tres servicios con valor regional.
+- Supuestos técnicos: protección, mesas, fases y fijación, sin una segunda incidencia en costos.
 - Financiamiento: Mercado Pago, Santander y todos los parámetros de ALZA.
 - Proyección: IPC, degradación, horizonte, descuento, 25 valores MPC y dos reposiciones.
 - Garantías e impacto: garantía por equipo, instalación y CO₂.
@@ -54,16 +48,9 @@ La regresión se ejecuta con `npm run test:integrity`.
 
 Cada input principal muestra ahora su hoja/celda o declara que es una regla web. Los campos duplicados de garantía global se eliminaron del contrato; la fuente canónica es el equipo seleccionado.
 
-## Transformación solicitada a kWp
+## Regla comercial vigente
 
-El Excel usa `MAIN!C44 = 2 × número de paneles` y mantiene `C45:C54` como entradas manuales de cada proyecto. Por requerimiento del cliente, el motor web transforma las magnitudes repetibles en coeficientes globales por kWp. Fases y fijación siguen siendo categorías técnicas.
-
-La vinculación comercial se resuelve así:
-
-- mesas/kWp escala la partida de estructura;
-- suma de canalizaciones/kWp escala cables y canalización;
-- amperes/kWp escala tableros y protecciones;
-- fases intervienen en la selección del inversor compatible.
+Cada partida de materiales se calcula como `fijo + variable × kWp`. Gestión e ingeniería toman una vez el valor fijo de la región, mientras instalación multiplica el valor regional por los kWp. No existe una segunda capa de canalizaciones que vuelva a alterar esos importes.
 
 ## Defectos heredados excluidos deliberadamente
 

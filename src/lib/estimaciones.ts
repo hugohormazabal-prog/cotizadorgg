@@ -15,6 +15,7 @@ import {
   precioInyeccionKwhClp,
   redondearHaciaArriba,
   calcularCreditoAlza,
+  costoPartidaNeto,
 } from './config';
 
 /** Número de fases de la instalación. 1 = monofásico (casa/depto), 3 = trifásico (empresa). */
@@ -63,13 +64,6 @@ export interface AhorroEstimado {
 }
 
 export interface VariablesVinculantesCalculadas {
-  canalizacionPanInvExteriorM: number;
-  canalizacionPanInvSubterraneoM: number;
-  canalizacionInvTabExteriorM: number;
-  canalizacionInvTabSubterraneoM: number;
-  canalizacionTabPcExteriorM: number;
-  canalizacionTabPcSubterraneoM: number;
-  canalizacionTabPcAereoM: number;
   proteccionGeneralA: number;
   numeroMesas: number;
   numeroFases: 1 | 3;
@@ -116,15 +110,26 @@ export interface CotizacionCompleta {
       id: string;
       nombre: string;
       categoria: 'materiales' | 'servicios';
-      costoNetoClpPorKwp: number;
+      tipoCalculo: 'fijo-variable' | 'fijo-regional' | 'variable-regional';
+      costoFijoNetoClp: number;
+      costoVariableNetoClpPorKwp: number;
       costoNeto: number;
     }>;
   };
   variablesVinculantes: VariablesVinculantesCalculadas;
   proyeccion: {
     periodoAnios: number;
+    /** Beneficio neto = ahorro en la cuenta + ingreso por inyección − reposiciones. */
     ahorroAcumuladoClp: number;
+    /** Solo lo que deja de pagarse en la cuenta (autoconsumo). Comparable contra costoEnergiaSinProyectoClp. */
+    ahorroCuentaClp: number;
+    /** Excedentes vendidos a la red. No reduce la cuenta: es ingreso adicional. */
+    ingresoInyeccionClp: number;
+    /** Reposiciones de inversor descontadas del beneficio. */
+    reposicionesClp: number;
     costoEnergiaSinProyectoClp: number;
+    /** Cuenta que se sigue pagando: la parte del consumo que el sistema no cubre. */
+    costoEnergiaConProyectoClp: number;
     vanClp: number;
     ahorroAnualClp: number[];
     ahorroAcumuladoPorAnioClp: number[];
@@ -147,19 +152,7 @@ export function calcularVariablesVinculantes(
   fases: Fases = cfg.variablesVinculantesKwp.fasesPredeterminadas,
 ): VariablesVinculantesCalculadas {
   const variables = cfg.variablesVinculantesKwp;
-  const metros = (coeficiente: number) => cantidadEscalada(
-    coeficiente,
-    capacidadKwp,
-    variables.redondeoCanalizacionM,
-  );
   return {
-    canalizacionPanInvExteriorM: metros(variables.canalizacionPanInvExteriorMPorKwp),
-    canalizacionPanInvSubterraneoM: metros(variables.canalizacionPanInvSubterraneoMPorKwp),
-    canalizacionInvTabExteriorM: metros(variables.canalizacionInvTabExteriorMPorKwp),
-    canalizacionInvTabSubterraneoM: metros(variables.canalizacionInvTabSubterraneoMPorKwp),
-    canalizacionTabPcExteriorM: metros(variables.canalizacionTabPcExteriorMPorKwp),
-    canalizacionTabPcSubterraneoM: metros(variables.canalizacionTabPcSubterraneoMPorKwp),
-    canalizacionTabPcAereoM: metros(variables.canalizacionTabPcAereoMPorKwp),
     proteccionGeneralA: cantidadEscalada(
       variables.proteccionGeneralAPorKwp,
       capacidadKwp,
@@ -220,6 +213,13 @@ export function calcularCotizacion(params: {
   const capacidadKwpTeorica = (consumoKwhAnual * factorGen) / genAnual;
   let numeroPaneles = Math.max(cfg.minPaneles, Math.ceil(capacidadKwpTeorica / panelKwp));
 
+  // MAIN!C31 sube la cantidad al par siguiente cuando hay gasto eléctrico
+  // (las mesas se arman de a dos paneles). Sin esto el cotizador entregaba
+  // sistemas de 9, 11, 13 o 15 paneles que el libro nunca produce.
+  if (cfg.redondearPanelesAPar && numeroPaneles % 2 === 1) {
+    numeroPaneles += 1;
+  }
+
   // Tope de paneles en monofásico (Excel COTBACK!D53). En trifásico (empresa)
   // no aplica el límite, por eso el flujo empresa dimensiona sistemas mayores.
   if (fases === 1) {
@@ -227,7 +227,7 @@ export function calcularCotizacion(params: {
   }
 
   const capacidadKwp = numeroPaneles * panelKwp;
-  const inversorActivo = getInversorParaSistema(cfg, capacidadKwp, fases);
+  const inversorActivo = getInversorParaSistema(cfg, capacidadKwp, fases, numeroPaneles);
 
   const generacionMensualKwh = genZona[region].map((month) => month * capacidadKwp);
   const autoconsumoMensualKwh = generacionMensualKwh.map((generation) =>
@@ -276,29 +276,18 @@ export function calcularCotizacion(params: {
   // 4. Precio del proyecto
   const panelesNeto = numeroPaneles * panelActivo.costoNetoClp;
   const inversorNeto = inversorActivo.costoNetoClp;
-  const canalizacionActual = Object.entries(cfg.variablesVinculantesKwp)
-    .filter(([key]) => key.startsWith('canalizacion') && key.endsWith('PorKwp'))
-    .reduce((total, [, value]) => total + Number(value), 0);
-  const canalizacionBase = Object.entries(CONFIG_DEFAULT.variablesVinculantesKwp)
-    .filter(([key]) => key.startsWith('canalizacion') && key.endsWith('PorKwp'))
-    .reduce((total, [, value]) => total + Number(value), 0);
-  const factorVinculante = (id: string): number => {
-    if (id === 'estructura') {
-      return cfg.variablesVinculantesKwp.mesasPorKwp / CONFIG_DEFAULT.variablesVinculantesKwp.mesasPorKwp;
-    }
-    if (id === 'cables-canalizacion') return canalizacionActual / canalizacionBase;
-    if (id === 'tableros-protecciones') {
-      return cfg.variablesVinculantesKwp.proteccionGeneralAPorKwp
-        / CONFIG_DEFAULT.variablesVinculantesKwp.proteccionGeneralAPorKwp;
-    }
-    return 1;
-  };
   const partidasKwp = cfg.partidasCostoKwp.filter((partida) => partida.activa).map((partida) => ({
     id: partida.id,
     nombre: partida.nombre,
     categoria: partida.categoria,
-    costoNetoClpPorKwp: partida.costoNetoClpPorKwp * factorVinculante(partida.id),
-    costoNeto: capacidadKwp * partida.costoNetoClpPorKwp * factorVinculante(partida.id),
+    tipoCalculo: partida.tipoCalculo,
+    costoFijoNetoClp: partida.tipoCalculo === 'fijo-regional'
+      ? partida.costosRegionalesNeto?.[region] ?? 0
+      : partida.costoFijoNetoClp,
+    costoVariableNetoClpPorKwp: partida.tipoCalculo === 'variable-regional'
+      ? partida.costosRegionalesNeto?.[region] ?? 0
+      : partida.costoVariableNetoClpPorKwp,
+    costoNeto: costoPartidaNeto(partida, capacidadKwp, region),
   }));
   const materialesGeneralesNeto = partidasKwp
     .filter((partida) => partida.categoria === 'materiales')
@@ -394,7 +383,11 @@ export function calcularCotizacion(params: {
   // Proyección visible para simulación de impacto. Replica los supuestos
   // centrales de las hojas FC: IPC, degradación lineal y reposiciones.
   let ahorroAcumuladoClp = 0;
+  let ahorroCuentaClp = 0;
+  let ingresoInyeccionClp = 0;
+  let reposicionesClp = 0;
   let costoEnergiaSinProyectoClp = 0;
+  let costoEnergiaConProyectoClp = 0;
   let vanClp = -precioProyectoClp;
   const ahorroAnualClp: number[] = [];
   const ahorroAcumuladoPorAnioClp: number[] = [];
@@ -411,19 +404,24 @@ export function calcularCotizacion(params: {
     const generation = generacionAnualKwh * degradation;
     const selfConsumption = Math.min(generation, autoconsumoAnualKwh);
     const injection = Math.max(0, generation - selfConsumption);
-    const savings = (
-      selfConsumption * precioConsumoProyectado
-      + injection * precioInyeccionProyectado
-    );
+    const ahorroCuentaAnual = selfConsumption * precioConsumoProyectado;
+    const ingresoInyeccionAnual = injection * precioInyeccionProyectado;
+    const savings = ahorroCuentaAnual + ingresoInyeccionAnual;
     const replacement = year === cfg.anioReposicion1
       ? cfg.inversionRespuesto10
       : year === cfg.anioReposicion2
         ? cfg.inversionRespuesto22
         : 0;
     ahorroAcumuladoClp += savings - replacement;
+    ahorroCuentaClp += ahorroCuentaAnual;
+    ingresoInyeccionClp += ingresoInyeccionAnual;
+    reposicionesClp += replacement;
     ahorroAnualClp.push(Math.round(savings - replacement));
     ahorroAcumuladoPorAnioClp.push(Math.round(ahorroAcumuladoClp));
-    costoEnergiaSinProyectoClp += consumoKwhAnual * precioConsumoProyectado;
+    const costoSinProyectoAnual = consumoKwhAnual * precioConsumoProyectado;
+    costoEnergiaSinProyectoClp += costoSinProyectoAnual;
+    // La cuenta no desaparece: se sigue pagando el consumo que el sistema no cubre.
+    costoEnergiaConProyectoClp += Math.max(0, costoSinProyectoAnual - ahorroCuentaAnual);
     // Las hojas FC descuentan el primer año con exponente cero (periodo - 1).
     vanClp += (savings - replacement) / Math.pow(1 + cfg.tasaDescuentoAnual, year - 1);
   }
@@ -443,7 +441,11 @@ export function calcularCotizacion(params: {
     proyeccion: {
       periodoAnios: cfg.periodoEvaluacionAnios,
       ahorroAcumuladoClp: Math.round(ahorroAcumuladoClp),
+      ahorroCuentaClp: Math.round(ahorroCuentaClp),
+      ingresoInyeccionClp: Math.round(ingresoInyeccionClp),
+      reposicionesClp: Math.round(reposicionesClp),
       costoEnergiaSinProyectoClp: Math.round(costoEnergiaSinProyectoClp),
+      costoEnergiaConProyectoClp: Math.round(costoEnergiaConProyectoClp),
       vanClp: Math.round(vanClp),
       ahorroAnualClp,
       ahorroAcumuladoPorAnioClp,
