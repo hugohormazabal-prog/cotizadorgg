@@ -56,6 +56,14 @@ export function validateRawConfigPayload(configValue: unknown, generationValue: 
   return issues;
 }
 
+/** Extrae la potencia en kW que anuncia el nombre del inversor (ej. "Sigen On-Grid 5 kW" → 5). */
+function potenciaNombradaKw(nombre: string): number | null {
+  const match = nombre.toLocaleLowerCase('es-CL').match(/(\d+(?:[.,]\d+)?)\s*kw/);
+  if (!match) return null;
+  const value = Number(match[1].replace(',', '.'));
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
 function finiteRange(
   issues: ConfigIssue[],
   field: keyof ConfigCotizador,
@@ -239,6 +247,9 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
   if (config.minPaneles > config.maxPanelesMonofasico) {
     issues.push({ field: 'minPaneles', message: 'El mínimo no puede superar el máximo monofásico.', severity: 'error' });
   }
+  const panelActivoValidacion = config.catalogoPaneles.find((item) => item.id === config.panelActivoId && item.estado === 'active')
+    ?? config.catalogoPaneles.find((item) => item.estado === 'active');
+  const panelKwpActivo = (panelActivoValidacion?.potenciaW ?? config.panelPotenciaW) / 1000;
   const monoRules = [...config.reglasInversorPorPaneles].filter((rule) => rule.fases === 1).sort((a, b) => a.minPaneles - b.minPaneles);
   let expectedPanel = config.minPaneles;
   for (const rule of monoRules) {
@@ -259,6 +270,27 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
       issues.push({ field, message: `${tramo}: "${inverter.nombre}" está marcado sin stock. Repón el stock o asigna otro inversor.`, severity: 'error' });
     } else if (inverter.fases !== rule.fases) {
       issues.push({ field, message: `${tramo}: "${inverter.nombre}" es de ${inverter.fases} fase(s) y el rango es de ${rule.fases}.`, severity: 'error' });
+    } else if (Number.isInteger(rule.minPaneles) && Number.isInteger(rule.maxPaneles) && rule.minPaneles <= rule.maxPaneles) {
+      // El inversor asignado tiene que poder con la potencia máxima del tramo.
+      // El motor sube los paneles impares al par siguiente (redondearPanelesAPar),
+      // así que el tope real del tramo baja en uno cuando maxPaneles es impar.
+      const panelesEfectivos = config.redondearPanelesAPar && rule.maxPaneles % 2 === 1
+        ? rule.maxPaneles - 1
+        : rule.maxPaneles;
+      const kwpTramo = Math.round(panelesEfectivos * panelKwpActivo * 100) / 100;
+      if (Number.isFinite(kwpTramo) && kwpTramo > 0) {
+        if (Number.isFinite(inverter.potenciaAcKw) && inverter.potenciaAcKw > 0 && inverter.potenciaAcKw < kwpTramo / 2) {
+          issues.push({ field, message: `${tramo}: "${inverter.nombre}" tiene ${inverter.potenciaAcKw} kW AC, muy poco para ${panelesEfectivos} paneles (${kwpTramo} kWp). Corrige la potencia AC del inversor o asigna otro.`, severity: 'error' });
+        }
+        if (Number.isFinite(inverter.potenciaDcKw) && inverter.potenciaDcKw > 0 && inverter.potenciaDcKw < kwpTramo) {
+          issues.push({ field, message: `${tramo}: "${inverter.nombre}" admite ${inverter.potenciaDcKw} kW DC y el tramo llega a ${kwpTramo} kWp. Confirma que el sobredimensionamiento sea intencional.`, severity: 'warning' });
+        }
+      }
+      const nombrada = potenciaNombradaKw(inverter.nombre);
+      if (nombrada != null && Number.isFinite(inverter.potenciaAcKw)
+        && (inverter.potenciaAcKw < nombrada * 0.7 || inverter.potenciaAcKw > nombrada * 1.3)) {
+        issues.push({ field, message: `${tramo}: el nombre indica ${nombrada} kW pero la potencia AC cargada es ${inverter.potenciaAcKw} kW. Verifica el dato del inversor.`, severity: 'warning' });
+      }
     }
     expectedPanel = Math.max(expectedPanel, rule.maxPaneles + 1);
   }
