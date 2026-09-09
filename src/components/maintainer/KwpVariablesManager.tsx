@@ -54,7 +54,7 @@ export function KwpVariablesManager({ config, onChange, preview, issues, region,
           </div>{issue && <p className={issue.severity === 'error' ? 'mt-2 text-xs text-rose-700' : 'mt-2 text-xs text-amber-700'}>{issue.message}</p>}
         </article>;
       })}</div>
-      <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Materiales aplicados</p><p className="mt-1 text-xl font-bold tabular-nums">{formatCLP(costoPartidasPorCategoria(config.partidasCostoKwp, 'materiales', capacidadKwp, region))}</p><p className="text-xs text-slate-500">Para {capacidadKwp.toLocaleString('es-CL')} kWp</p></div>
+      <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Costo de materiales</p><p className="mt-1 text-xl font-bold tabular-nums">{formatCLP(costoPartidasPorCategoria(config.partidasCostoKwp, 'materiales', capacidadKwp, region))}</p><p className="text-xs text-slate-500">Para {capacidadKwp.toLocaleString('es-CL')} kWp</p></div>
     </Section>
 
     <Section icon={MapPinned} title="Costos por región" description="Gestión del proyecto e Ingeniería TE4 y conexión son montos fijos. Instalación es un valor por kWp. Se usa un solo valor por partida y región.">

@@ -74,11 +74,11 @@ function regional(defaultValue: number, overrides: Partial<CostosRegionales> = {
 }
 
 const DEFAULT_PARTIDAS_COSTO_KWP: PartidaCostoKwp[] = [
-  { id: 'estructura', nombre: 'Estructura y fijaciones', categoria: 'materiales', tipoCalculo: 'fijo-variable', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 33_568, costosRegionalesNeto: null, activa: true, referenciaExcel: 'CUBICADOR!G15:G28' },
-  { id: 'comunicacion', nombre: 'Comunicación y medición', categoria: 'materiales', tipoCalculo: 'fijo-variable', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 12_412, costosRegionalesNeto: null, activa: true, referenciaExcel: 'CUBICADOR!G29:G32' },
+  { id: 'estructura', nombre: 'Estructura', categoria: 'materiales', tipoCalculo: 'fijo-variable', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 33_568, costosRegionalesNeto: null, activa: true, referenciaExcel: 'CUBICADOR!G15:G28' },
+  { id: 'comunicacion', nombre: 'Comunicación', categoria: 'materiales', tipoCalculo: 'fijo-variable', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 12_412, costosRegionalesNeto: null, activa: true, referenciaExcel: 'CUBICADOR!G29:G32' },
   { id: 'cables-canalizacion', nombre: 'Cables y canalización', categoria: 'materiales', tipoCalculo: 'fijo-variable', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 87_791, costosRegionalesNeto: null, activa: true, referenciaExcel: 'CUBICADOR!G33:G83' },
-  { id: 'tableros-protecciones', nombre: 'Tableros y protecciones', categoria: 'materiales', tipoCalculo: 'fijo-variable', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 25_543, costosRegionalesNeto: null, activa: true, referenciaExcel: 'CUBICADOR!G84:G101' },
-  { id: 'puesta-marcha', nombre: 'Puesta en marcha, rotulación y logística', categoria: 'materiales', tipoCalculo: 'fijo-variable', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 6_088, costosRegionalesNeto: null, activa: true, referenciaExcel: 'CUBICADOR!G107,G116:G130' },
+  { id: 'tableros-protecciones', nombre: 'Tablero eléctrico y protecciones', categoria: 'materiales', tipoCalculo: 'fijo-variable', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 25_543, costosRegionalesNeto: null, activa: true, referenciaExcel: 'CUBICADOR!G84:G101' },
+  { id: 'puesta-marcha', nombre: 'Rotulado', categoria: 'materiales', tipoCalculo: 'fijo-variable', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 6_088, costosRegionalesNeto: null, activa: true, referenciaExcel: 'CUBICADOR!G107,G116:G130' },
   { id: 'gestion-proyecto', nombre: 'Gestión del proyecto', categoria: 'servicios', tipoCalculo: 'fijo-regional', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 0, costosRegionalesNeto: regional(777_600, { 'De Valparaíso': 305_594, Metropolitana: 277_594, "De O'Higgins": 305_594, 'Del Maule': 477_600, 'Del Ñuble': 677_600 }), activa: true, referenciaExcel: 'CUBICADOR!G103' },
   { id: 'instalacion', nombre: 'Instalación', categoria: 'servicios', tipoCalculo: 'variable-regional', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 0, costosRegionalesNeto: regional(160_000, { 'De Coquimbo': 150_000, 'De Valparaíso': 145_000, Metropolitana: 130_000, "De O'Higgins": 150_000 }), activa: true, referenciaExcel: 'CUBICADOR!G104' },
   { id: 'ingenieria-tramite', nombre: 'Ingeniería TE4 y conexión', categoria: 'servicios', tipoCalculo: 'fijo-regional', costoFijoNetoClp: 0, costoVariableNetoClpPorKwp: 0, costosRegionalesNeto: regional(562_499, { 'De Coquimbo': 312_499, Metropolitana: 312_499, "De O'Higgins": 312_499, 'Del Maule': 312_499, 'Del Ñuble': 312_499 }), activa: true, referenciaExcel: 'CUBICADOR!G105' },
@@ -156,6 +156,8 @@ export interface ConfigCotizador {
   inversionRespuesto10: number;
   anioReposicion2: number;
   inversionRespuesto22: number;
+  /** Cuando es true, las reposiciones cuestan el precio del inversor instalado (COT_ONGRID!G165). */
+  reposicionSigueInversor: boolean;
 
   // FC MP / FC SANTANDER
   factorMP: number;
@@ -170,8 +172,8 @@ export interface ConfigCotizador {
   alzaFinancialFee: number;
   /** Garantía como % del TOTAL del proyecto financiado (CREDITOALZA!E14). */
   alzaGarantiaPctTotal: number;
+  /** Gastos notariales expresados en UF; se valorizan con valorUfClp. */
   alzaCantidadGastos: number;
-  alzaCostoUnitarioClp: number;
   alzaPieClp: number;
   valorUfClp: number;
 
@@ -185,7 +187,7 @@ const CAPACIDAD_REFERENCIA_KWP = 3.72;
 const EQUIPOS_REFERENCIA_POR_KWP = EQUIPOS_REFERENCIA_NETO / CAPACIDAD_REFERENCIA_KWP;
 
 export const CONFIG_DEFAULT: ConfigCotizador = {
-  schemaVersion: 10,
+  schemaVersion: 11,
   precioKwhClp: 250,
   precioNudoInyeccionClp: 125.786927,
   ivaInyeccion: 1,
@@ -235,6 +237,7 @@ export const CONFIG_DEFAULT: ConfigCotizador = {
   inversionRespuesto10: 819_000,
   anioReposicion2: 21,
   inversionRespuesto22: 819_000,
+  reposicionSigueInversor: true,
 
   // Comisión MP 6,99% + operación 3,19%, ambas con IVA.
   factorMP: 1 / (1 - 0.0699 * 1.19 - 0.0319 * 1.19),
@@ -248,7 +251,6 @@ export const CONFIG_DEFAULT: ConfigCotizador = {
   alzaFinancialFee: 0.238,
   alzaGarantiaPctTotal: 0.1,
   alzaCantidadGastos: 6,
-  alzaCostoUnitarioClp: 41_000,
   alzaPieClp: 0,
   valorUfClp: 40_845,
 
@@ -343,7 +345,7 @@ export interface CalculoAlza {
 /** Réplica de CREDITOALZA!C13:C30 para que plazo/tasa/UF se mantengan coherentes. */
 export function calcularCreditoAlza(precioProyectoIva: number, cfg: ConfigCotizador): CalculoAlza {
   const valorPlantaNeto = (precioProyectoIva - cfg.alzaPieClp) / cfg.ivaVenta;
-  const gastosFinancieros = cfg.alzaCantidadGastos * cfg.alzaCostoUnitarioClp * cfg.ivaVenta;
+  const gastosFinancieros = cfg.alzaCantidadGastos * cfg.valorUfClp * cfg.ivaVenta;
   const fee = cfg.alzaFinancialFee;
   // La garantía del libro NO son dos parámetros. CREDITOALZA!C14 se ve como
   //   (0,119·V + 0,1·Gastos + 0,119·fee·V + 0,1·fee·Gastos) / (0,881 - 0,119·fee)
@@ -425,8 +427,10 @@ function normalizePartidasCosto(
 
   const normalized = value.map((item, index): PartidaCostoKwp | null => {
     if (!isRecord(item)) return null;
-    const fallback = DEFAULT_PARTIDAS_COSTO_KWP.find((entry) => entry.id === item.id)
-      ?? DEFAULT_PARTIDAS_COSTO_KWP[index % DEFAULT_PARTIDAS_COSTO_KWP.length];
+    // El nombre de una partida conocida siempre viene del catálogo por defecto:
+    // así un renombre llega a las configuraciones ya publicadas sin migrar datos.
+    const canonica = DEFAULT_PARTIDAS_COSTO_KWP.find((entry) => entry.id === item.id);
+    const fallback = canonica ?? DEFAULT_PARTIDAS_COSTO_KWP[index % DEFAULT_PARTIDAS_COSTO_KWP.length];
     const categoria = item.id === 'puesta-marcha' ? 'materiales' : item.categoria === 'servicios' ? 'servicios' : 'materiales';
     const tipoCalculo = item.tipoCalculo === 'fijo-regional' || item.tipoCalculo === 'variable-regional'
       ? item.tipoCalculo
@@ -439,7 +443,7 @@ function normalizePartidasCosto(
     ) as CostosRegionales;
     return {
       id: typeof item.id === 'string' ? item.id.trim().slice(0, 80) : `partida-${index + 1}`,
-      nombre: typeof item.nombre === 'string' ? item.nombre.trim().slice(0, 160) : '',
+      nombre: canonica?.nombre ?? (typeof item.nombre === 'string' ? item.nombre.trim().slice(0, 160) : ''),
       categoria,
       tipoCalculo,
       costoFijoNetoClp: typeof item.costoFijoNetoClp === 'number' ? item.costoFijoNetoClp : fallback.costoFijoNetoClp,
@@ -507,7 +511,6 @@ export function normalizeConfig(value: unknown): ConfigCotizador {
     // variables que no existen en CREDITOALZA del libro auditado.
     merged.alzaTasaAnual = CONFIG_DEFAULT.alzaTasaAnual;
     merged.alzaCantidadGastos = CONFIG_DEFAULT.alzaCantidadGastos;
-    merged.alzaCostoUnitarioClp = CONFIG_DEFAULT.alzaCostoUnitarioClp;
     merged.alzaPieClp = CONFIG_DEFAULT.alzaPieClp;
     merged.valorUfClp = CONFIG_DEFAULT.valorUfClp;
   }

@@ -170,11 +170,11 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
   finiteRange(issues, 'precioNudoInyeccionClp', config.precioNudoInyeccionClp, 0.01, 10_000, 'Precio de nudo');
   finiteRange(issues, 'ivaInyeccion', config.ivaInyeccion, 1, 1, 'Factor interno de inyección');
   finiteRange(issues, 'limiteAutoconsumo', config.limiteAutoconsumo, 0, 1, 'Límite de autoconsumo');
-  finiteRange(issues, 'proyeccionConsumo', config.proyeccionConsumo, 0.01, 10, 'Proyección de consumo');
+  finiteRange(issues, 'proyeccionConsumo', config.proyeccionConsumo, 0.01, 10, 'Proyección del consumo');
   finiteRange(issues, 'panelPotenciaW', config.panelPotenciaW, 100, 1_500, 'Potencia del panel');
   finiteRange(issues, 'inversorPotenciaMinKw', config.inversorPotenciaMinKw, 0.5, 500, 'Potencia mínima del inversor');
   finiteRange(issues, 'minPaneles', config.minPaneles, 1, 100, 'Mínimo de paneles');
-  finiteRange(issues, 'maxPanelesMonofasico', config.maxPanelesMonofasico, 1, 200, 'Máximo monofásico');
+  finiteRange(issues, 'maxPanelesMonofasico', config.maxPanelesMonofasico, 1, 200, 'Máximo de paneles');
   finiteRange(issues, 'margen', config.margen, 0, 0.8, 'Margen');
   finiteRange(issues, 'ivaVenta', config.ivaVenta, 1, 2, 'IVA de venta');
   finiteRange(issues, 'costoMaterialesGeneralesPorKwpNeto', config.costoMaterialesGeneralesPorKwpNeto, 0, 100_000_000, 'Costo de materiales generales');
@@ -197,9 +197,9 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
     }
   });
   finiteRange(issues, 'anioReposicion1', config.anioReposicion1, 1, 50, 'Año de primera reposición');
-  finiteRange(issues, 'inversionRespuesto10', config.inversionRespuesto10, 0, 100_000_000, 'Costo de primera reposición');
+  finiteRange(issues, 'inversionRespuesto10', config.inversionRespuesto10, 0, 100_000_000, 'Costo primera reposición');
   finiteRange(issues, 'anioReposicion2', config.anioReposicion2, 1, 50, 'Año de segunda reposición');
-  finiteRange(issues, 'inversionRespuesto22', config.inversionRespuesto22, 0, 100_000_000, 'Costo de segunda reposición');
+  finiteRange(issues, 'inversionRespuesto22', config.inversionRespuesto22, 0, 100_000_000, 'Costo segunda reposición');
   finiteRange(issues, 'factorMP', config.factorMP, 1, 5, 'Factor Mercado Pago');
   finiteRange(issues, 'factorSantander', config.factorSantander, 1, 5, 'Factor Santander');
   finiteRange(issues, 'cuotasMP', config.cuotasMP, 1, 120, 'Cuotas Mercado Pago');
@@ -209,8 +209,7 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
   finiteRange(issues, 'cuotasALZA', config.cuotasALZA, 1, 600, 'Plazo ALZA');
   finiteRange(issues, 'alzaFinancialFee', config.alzaFinancialFee, 0, 1, 'Fee ALZA');
   finiteRange(issues, 'alzaGarantiaPctTotal', config.alzaGarantiaPctTotal, 0, 0.5, 'Garantía ALZA (% del total)');
-  finiteRange(issues, 'alzaCantidadGastos', config.alzaCantidadGastos, 0, 10_000, 'Cantidad de gastos ALZA');
-  finiteRange(issues, 'alzaCostoUnitarioClp', config.alzaCostoUnitarioClp, 0, 100_000_000, 'Costo unitario ALZA');
+  finiteRange(issues, 'alzaCantidadGastos', config.alzaCantidadGastos, 0, 10_000, 'Gastos notariales ALZA');
   finiteRange(issues, 'alzaPieClp', config.alzaPieClp, 0, 100_000_000, 'Pie ALZA');
   finiteRange(issues, 'valorUfClp', config.valorUfClp, 1, 1_000_000, 'Valor UF');
   finiteRange(issues, 'garantiaInstalacion', config.garantiaInstalacion, 0, 20, 'Garantía de instalación');
@@ -218,12 +217,12 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
 
   const integerFields: Array<[keyof ConfigCotizador, number, string]> = [
     ['minPaneles', config.minPaneles, 'Mínimo de paneles'],
-    ['maxPanelesMonofasico', config.maxPanelesMonofasico, 'Máximo monofásico'],
+    ['maxPanelesMonofasico', config.maxPanelesMonofasico, 'Máximo de paneles'],
     ['cuotasMP', config.cuotasMP, 'Cuotas Mercado Pago'],
     ['cuotasSantander', config.cuotasSantander, 'Cuotas Santander'],
     ['alzaMesesGracia', config.alzaMesesGracia, 'Meses de gracia ALZA'],
     ['cuotasALZA', config.cuotasALZA, 'Plazo ALZA'],
-    ['alzaCantidadGastos', config.alzaCantidadGastos, 'Cantidad de gastos ALZA'],
+    ['alzaCantidadGastos', config.alzaCantidadGastos, 'Gastos notariales ALZA'],
     ['periodoEvaluacionAnios', config.periodoEvaluacionAnios, 'Período de evaluación'],
     ['anioReposicion1', config.anioReposicion1, 'Año de primera reposición'],
     ['anioReposicion2', config.anioReposicion2, 'Año de segunda reposición'],

@@ -127,6 +127,8 @@ export interface CotizacionCompleta {
     ingresoInyeccionClp: number;
     /** Reposiciones de inversor descontadas del beneficio. */
     reposicionesClp: number;
+    /** Costo de una reposición de inversor, tal como se aplicó en la proyección. */
+    costoReposicionInversorClp: number;
     costoEnergiaSinProyectoClp: number;
     /** Cuenta que se sigue pagando: la parte del consumo que el sistema no cubre. */
     costoEnergiaConProyectoClp: number;
@@ -389,6 +391,10 @@ export function calcularCotizacion(params: {
   let costoEnergiaSinProyectoClp = 0;
   let costoEnergiaConProyectoClp = 0;
   let vanClp = -precioProyectoClp;
+  // COT_ONGRID!G165 (la celda que FC Capital Propio!O30/Y30 descuentan) es
+  // cantidad × precio de venta del inversor, no su costo neto. Reponer el equipo
+  // cuesta lo que cuesta comprarlo, así que la proyección usa el mismo criterio.
+  const costoReposicionInversorClp = inversorActivo.precioVentaClp;
   const ahorroAnualClp: number[] = [];
   const ahorroAcumuladoPorAnioClp: number[] = [];
   let precioConsumoProyectado = cfg.precioKwhClp;
@@ -408,9 +414,9 @@ export function calcularCotizacion(params: {
     const ingresoInyeccionAnual = injection * precioInyeccionProyectado;
     const savings = ahorroCuentaAnual + ingresoInyeccionAnual;
     const replacement = year === cfg.anioReposicion1
-      ? cfg.inversionRespuesto10
+      ? (cfg.reposicionSigueInversor ? costoReposicionInversorClp : cfg.inversionRespuesto10)
       : year === cfg.anioReposicion2
-        ? cfg.inversionRespuesto22
+        ? (cfg.reposicionSigueInversor ? costoReposicionInversorClp : cfg.inversionRespuesto22)
         : 0;
     ahorroAcumuladoClp += savings - replacement;
     ahorroCuentaClp += ahorroCuentaAnual;
@@ -444,6 +450,7 @@ export function calcularCotizacion(params: {
       ahorroCuentaClp: Math.round(ahorroCuentaClp),
       ingresoInyeccionClp: Math.round(ingresoInyeccionClp),
       reposicionesClp: Math.round(reposicionesClp),
+      costoReposicionInversorClp: Math.round(costoReposicionInversorClp),
       costoEnergiaSinProyectoClp: Math.round(costoEnergiaSinProyectoClp),
       costoEnergiaConProyectoClp: Math.round(costoEnergiaConProyectoClp),
       vanClp: Math.round(vanClp),

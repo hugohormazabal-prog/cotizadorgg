@@ -56,10 +56,15 @@ assert.equal(getInversorParaSistema(CONFIG_DEFAULT, 4.34, 1, 7).potenciaAcKw, ge
 // ALZA: la garantía se calcula SOLO sobre el capital. La segunda garantía (sobre
 // los gastos financieros) se eliminó por indicación del cliente: no aplica.
 // Caso patrón del libro: CREDITOALZA con COT_ONGRID!A77 = 5.179.000.
+// Divergencia deliberada: CREDITOALZA!C16 escribe los gastos como 6 × 41.000,
+// un unitario que ya no existe. Por indicación del cliente los gastos se
+// valorizan en UF (6 × C29 = 6 × 40.845), lo que baja la cuota en ~11 CLP.
 const alzaDirect = calcularCreditoAlza(5_179_000, CONFIG_DEFAULT);
-assert.ok(Math.abs(alzaDirect.garantia - 794_439.8846926976) < 1e-6, 'Garantía debe reproducir CREDITOALZA!C14.');
-assert.ok(Math.abs(alzaDirect.totalFinanciado - 7_944_398.846926977) < 1e-6, 'Total debe reproducir CREDITOALZA!C22.');
-assert.ok(Math.abs(alzaDirect.cuotaMensual - 53_026.06804) < 1e-6, 'Cuota debe reproducir CREDITOALZA!C28.');
+assert.ok(Math.abs(alzaDirect.gastosFinancieros - CONFIG_DEFAULT.alzaCantidadGastos * CONFIG_DEFAULT.valorUfClp * CONFIG_DEFAULT.ivaVenta) < 1e-9,
+  'Los gastos notariales deben valorizarse al Valor UF configurado.');
+assert.ok(Math.abs(alzaDirect.garantia - 794_279.2033334975) < 1e-6, 'Garantía debe seguir la construcción de CREDITOALZA!C14.');
+assert.ok(Math.abs(alzaDirect.totalFinanciado - 7_942_792.033334973) < 1e-6, 'Total debe seguir la construcción de CREDITOALZA!C22.');
+assert.ok(Math.abs(alzaDirect.cuotaMensual - 53_015.34313) < 1e-6, 'Cuota debe seguir el PMT de CREDITOALZA!C28.');
 // CREDITOALZA!E14: la garantía es, por construcción, el % configurado del total.
 assert.ok(Math.abs(alzaDirect.garantia / alzaDirect.totalFinanciado - CONFIG_DEFAULT.alzaGarantiaPctTotal) < 1e-9,
   'La garantía debe ser exactamente el porcentaje configurado del total del proyecto.');
@@ -77,7 +82,7 @@ const overlap = { ...CONFIG_DEFAULT, reglasInversorPorPaneles: CONFIG_DEFAULT.re
 assert.equal(hasErrors(validateConfig(overlap, GENERACION_POR_ZONA)), true, 'Los rangos solapados deben rechazarse.');
 
 const migrated = normalizeConfig({ ...CONFIG_DEFAULT, schemaVersion: 8, precioNudoInyeccionClp: 105.7033, ivaInyeccion: 1.19 });
-assert.equal(migrated.schemaVersion, 10);
+assert.equal(migrated.schemaVersion, 11);
 assert.ok(Math.abs(migrated.precioNudoInyeccionClp - 125.786927) < 1e-9);
 assert.equal(migrated.ivaInyeccion, 1);
 assert.equal(migrated.partidasCostoKwp.find((item) => item.id === 'puesta-marcha')?.categoria, 'materiales');
@@ -111,7 +116,14 @@ assert.ok(Math.abs((pr.ahorroCuentaClp + pr.ingresoInyeccionClp - pr.reposicione
   'Ahorro + inyección − reposiciones debe reconstruir el beneficio neto.');
 assert.ok(pr.ahorroCuentaClp < pr.costoEnergiaSinProyectoClp,
   'El ahorro en la cuenta nunca puede superar el costo de la energía.');
-assert.equal(pr.reposicionesClp, CONFIG_DEFAULT.inversionRespuesto10 + CONFIG_DEFAULT.inversionRespuesto22);
+// Reposición ligada al equipo: FC Capital Propio!O30/Y30 descuentan
+// COT_ONGRID!G165, o sea el precio del inversor instalado, no un monto fijo.
+assert.equal(pr.reposicionesClp, pr.costoReposicionInversorClp * 2,
+  'Con el seguimiento activo, ambas reposiciones cuestan el inversor instalado.');
+assert.ok(pr.costoReposicionInversorClp > 0, 'La reposición debe tomar un precio real del catálogo.');
+const prManual = quote({ ...CONFIG_DEFAULT, reposicionSigueInversor: false }, 'Metropolitana').proyeccion;
+assert.equal(prManual.reposicionesClp, CONFIG_DEFAULT.inversionRespuesto10 + CONFIG_DEFAULT.inversionRespuesto22,
+  'Con el seguimiento apagado deben mandar los montos escritos a mano.');
 
 // MAIN!C31: la cantidad de paneles sube al par siguiente.
 for (const region of ['De Tarapacá', 'Del Maule', 'De la Araucanía', 'De los Lagos'] as const) {

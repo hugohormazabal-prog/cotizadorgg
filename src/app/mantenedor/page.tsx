@@ -112,7 +112,7 @@ function FieldShell({ label, htmlFor, hint, reference, error, children }: {
   );
 }
 
-function NumberField({ id, label, value, onChange, unit, hint, reference, min, max, integer, percent, issue }: {
+function NumberField({ id, label, value, onChange, unit, hint, reference, min, max, integer, percent, issue, readOnly }: {
   id: string;
   label: string;
   value: number;
@@ -125,10 +125,15 @@ function NumberField({ id, label, value, onChange, unit, hint, reference, min, m
   integer?: boolean;
   percent?: boolean;
   issue?: ConfigIssue;
+  readOnly?: boolean;
 }) {
   const displayed = Number.isFinite(value)
     ? (percent ? Number((value * 100).toFixed(6)) : value)
     : '';
+  const sufijo = percent ? '%' : unit ?? '';
+  // Reservar sólo el ancho que ocupa el sufijo: con pr-32 fijo, un campo
+  // angosto como los de la serie MPC escondía los decimales.
+  const espacioSufijo = sufijo ? `${sufijo.length * 0.5 + 1.5}rem` : undefined;
   return (
     <FieldShell label={label} htmlFor={id} hint={hint} reference={reference} error={issue?.message}>
       <div className="relative">
@@ -140,6 +145,7 @@ function NumberField({ id, label, value, onChange, unit, hint, reference, min, m
             issue || hint ? `${id}-help` : '',
           ].filter(Boolean).join(' ') || undefined}
           type="number"
+          readOnly={readOnly}
           inputMode={integer ? 'numeric' : 'decimal'}
           value={displayed}
           min={percent && min != null ? min * 100 : min}
@@ -149,11 +155,12 @@ function NumberField({ id, label, value, onChange, unit, hint, reference, min, m
             const next = event.target.value === '' ? Number.NaN : Number(event.target.value);
             onChange(percent ? next / 100 : next);
           }}
-          className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 pr-32 text-base text-slate-950 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+          style={espacioSufijo ? { paddingRight: espacioSufijo } : undefined}
+          className={`min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-base text-slate-950 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 ${readOnly ? 'cursor-not-allowed bg-slate-100 text-slate-600' : 'bg-white'}`}
         />
-        {(unit || percent) && (
-          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-slate-500">
-            {percent ? '%' : unit}
+        {sufijo && (
+          <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs font-semibold text-slate-500">
+            {sufijo}
           </span>
         )}
       </div>
@@ -412,6 +419,9 @@ export default function MantenedorPage() {
   };
 
   const alzaPreview = preview ? calcularCreditoAlza(preview.precioProyectoClp, config) : null;
+  // Lo que cuesta reponer el inversor que el caso simulado instala. Sigue el
+  // criterio del libro (COT_ONGRID!G165): precio de venta del equipo, no su costo neto.
+  const costoInversorNeto = preview?.proyeccion.costoReposicionInversorClp ?? 0;
   const errorCount = issues.filter((issue) => issue.severity === 'error').length;
   const warningCount = issues.filter((issue) => issue.severity === 'warning').length;
 
@@ -562,12 +572,12 @@ export default function MantenedorPage() {
           {section === 'energia' && (
             <SectionCard title="Energía y dimensionamiento" description="Configura las tarifas, el autoconsumo y los límites usados en cada simulación.">
               <div className="grid gap-5 md:grid-cols-2">
-                <NumberField id="precio-kwh" label="Tarifa de consumo" value={config.precioKwhClp} onChange={(value) => patch('precioKwhClp', value)} unit="CLP/kWh" reference="MAIN!C71" issue={issueFor('precioKwhClp')} />
-                <NumberField id="precio-nudo" label="Precio de inyección (IVA incluido)" value={config.precioNudoInyeccionClp} onChange={(value) => patch('precioNudoInyeccionClp', value)} unit="CLP/kWh" reference="MAIN!C72" hint="Ingresa el valor final con IVA. El motor no vuelve a aplicarlo." issue={issueFor('precioNudoInyeccionClp')} />
+                <NumberField id="precio-kwh" label="Tarifa de consumo IVA incluido" value={config.precioKwhClp} onChange={(value) => patch('precioKwhClp', value)} unit="$/kWh" reference="MAIN!C71" issue={issueFor('precioKwhClp')} />
+                <NumberField id="precio-nudo" label="Tarifa de inyección IVA incluido" value={config.precioNudoInyeccionClp} onChange={(value) => patch('precioNudoInyeccionClp', value)} unit="$/kWh" reference="MAIN!C72" hint="Ingresa el valor final con IVA. El motor no vuelve a aplicarlo." issue={issueFor('precioNudoInyeccionClp')} />
                 <NumberField id="limite-auto" label="Límite de autoconsumo" value={config.limiteAutoconsumo} onChange={(value) => patch('limiteAutoconsumo', value)} percent min={0} max={1} reference="INPUT!B19" issue={issueFor('limiteAutoconsumo')} />
-                <NumberField id="proyeccion" label="Proyección de consumo" value={config.proyeccionConsumo} onChange={(value) => patch('proyeccionConsumo', value)} unit="factor" reference="INPUT!B18" issue={issueFor('proyeccionConsumo')} />
-                <NumberField id="min-paneles" label="Mínimo de paneles" value={config.minPaneles} onChange={(value) => patch('minPaneles', value)} unit="paneles" integer issue={issueFor('minPaneles')} />
-                <NumberField id="max-paneles" label="Tope monofásico" value={config.maxPanelesMonofasico} onChange={(value) => patch('maxPanelesMonofasico', value)} unit="paneles" integer reference="COTBACK!D53" issue={issueFor('maxPanelesMonofasico')} />
+                <NumberField id="proyeccion" label="Proyección del consumo" value={config.proyeccionConsumo} onChange={(value) => patch('proyeccionConsumo', value)} percent min={0.01} max={10} reference="INPUT!B18" issue={issueFor('proyeccionConsumo')} />
+                <NumberField id="min-paneles" label="Mínimo de paneles" value={config.minPaneles} onChange={(value) => patch('minPaneles', value)} unit="u" integer issue={issueFor('minPaneles')} />
+                <NumberField id="max-paneles" label="Máximo de paneles" value={config.maxPanelesMonofasico} onChange={(value) => patch('maxPanelesMonofasico', value)} unit="u" integer reference="COTBACK!D53" issue={issueFor('maxPanelesMonofasico')} />
               </div>
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <Metric label="Inyección efectiva" value={`${precioInyeccionKwhClp(config).toLocaleString('es-CL', { maximumFractionDigits: 4 })} CLP/kWh`} detail="Valor final con IVA incluido" tone="sky" />
@@ -585,14 +595,14 @@ export default function MantenedorPage() {
               <EquipmentCatalogManager config={config} onChange={setConfig} />
               <SectionCard title="Reglas comerciales del precio" description="Las partidas se administran en Partidas y costos. Aquí se mantienen el margen, IVA y redondeo final.">
                 <div className="grid gap-5 md:grid-cols-2">
-                  <NumberField id="margin" label="Margen efectivo" value={config.margen} onChange={(value) => patch('margen', value)} percent min={0} max={0.8} reference="CUBICADOR!L6" hint="El objetivo MAIN!C26 es 19%; los precios unitarios redondeados dejan 19,4089% efectivo en el caso patrón." issue={issueFor('margen')} />
+                  <NumberField id="margin" label="Margen bruto" value={config.margen} onChange={(value) => patch('margen', value)} percent min={0} max={0.8} reference="CUBICADOR!L6" hint="El objetivo MAIN!C26 es 19%; los precios unitarios redondeados dejan 19,4089% efectivo en el caso patrón." issue={issueFor('margen')} />
                   <NumberField id="iva-sale" label="IVA de venta" value={config.ivaVenta - 1} onChange={(value) => patch('ivaVenta', 1 + value)} percent min={0} max={1} reference="COT_ONGRID!G293" issue={issueFor('ivaVenta')} />
                   <NumberField id="round-price" label="Redondeo hacia arriba" value={config.redondeoPrecioClp} onChange={(value) => patch('redondeoPrecioClp', value)} unit="CLP" integer reference="COT_ONGRID!A77" issue={issueFor('redondeoPrecioClp')} />
                 </div>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <Metric label="Equipos seleccionados" value={formatCLP((preview?.desgloseCostos.panelesNeto ?? 0) + (preview?.desgloseCostos.inversorNeto ?? 0))} detail="Paneles + inversor del caso" tone="sky" />
-                  <Metric label="Materiales aplicados" value={formatCLP(preview?.desgloseCostos.materialesGeneralesNeto ?? 0)} detail="Fijo + variable por kWp" />
-                  <Metric label="Servicios regionales" value={formatCLP(preview?.desgloseCostos.serviciosNeto ?? 0)} detail={`Valores de ${scenarioRegion}`} />
+                  <Metric label="Equipos principales" value={formatCLP((preview?.desgloseCostos.panelesNeto ?? 0) + (preview?.desgloseCostos.inversorNeto ?? 0))} detail="Paneles + inversor del caso" tone="sky" />
+                  <Metric label="Otros materiales" value={formatCLP(preview?.desgloseCostos.materialesGeneralesNeto ?? 0)} detail="Fijo + variable por kWp" />
+                  <Metric label="Servicios" value={formatCLP(preview?.desgloseCostos.serviciosNeto ?? 0)} detail={`Valores de ${scenarioRegion}`} />
                   <Metric label="Costo neto total" value={formatCLP(preview?.desgloseCostos.totalNeto ?? 0)} detail={`Equipos + partidas de ${scenarioRegion}`} tone="amber" />
                 </div>
               </SectionCard>
@@ -604,22 +614,21 @@ export default function MantenedorPage() {
               <SectionCard title="Tarjetas" description="Configura el recargo total y el número de cuotas de cada medio de pago.">
                 <div className="grid gap-5 md:grid-cols-2">
                   <NumberField id="mp-factor" label="Recargo Mercado Pago" value={config.factorMP - 1} onChange={(value) => patch('factorMP', 1 + value)} percent min={0} max={4} reference="COT_GRANEL!D153" issue={issueFor('factorMP')} />
-                  <NumberField id="mp-quota" label="Cuotas Mercado Pago" value={config.cuotasMP} onChange={(value) => patch('cuotasMP', value)} unit="meses" integer reference="COT_GRANEL!D153" issue={issueFor('cuotasMP')} />
+                  <NumberField id="mp-quota" label="Cuotas mensuales Mercado Pago" value={config.cuotasMP} onChange={(value) => patch('cuotasMP', value)} unit="u" integer reference="COT_GRANEL!D153" issue={issueFor('cuotasMP')} />
                   <NumberField id="san-factor" label="Recargo Santander" value={config.factorSantander - 1} onChange={(value) => patch('factorSantander', 1 + value)} percent min={0} max={4} reference="COT_ONGRID!E77" issue={issueFor('factorSantander')} />
-                  <NumberField id="san-quota" label="Cuotas Santander" value={config.cuotasSantander} onChange={(value) => patch('cuotasSantander', value)} unit="meses" integer reference="COT_ONGRID!E76:E77" issue={issueFor('cuotasSantander')} />
+                  <NumberField id="san-quota" label="Cuotas mensuales Santander" value={config.cuotasSantander} onChange={(value) => patch('cuotasSantander', value)} unit="u" integer reference="COT_ONGRID!E76:E77" issue={issueFor('cuotasSantander')} />
                 </div>
               </SectionCard>
               <SectionCard title="Crédito verde ALZA" description="Configura la tasa, el plazo, los gastos y las garantías del financiamiento.">
                 <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                   <NumberField id="alza-rate" label="Tasa anual" value={config.alzaTasaAnual} onChange={(value) => patch('alzaTasaAnual', value)} percent reference="CREDITOALZA!C26" issue={issueFor('alzaTasaAnual')} />
                   <NumberField id="alza-term" label="Plazo" value={config.cuotasALZA} onChange={(value) => patch('cuotasALZA', value)} unit="meses" integer reference="CREDITOALZA!C25" issue={issueFor('cuotasALZA')} />
-                  <NumberField id="alza-grace" label="Meses de gracia" value={config.alzaMesesGracia} onChange={(value) => patch('alzaMesesGracia', value)} unit="meses" integer reference="CREDITOALZA!C24" issue={issueFor('alzaMesesGracia')} />
+                  <NumberField id="alza-grace" label="Meses de gracia" value={config.alzaMesesGracia} onChange={(value) => patch('alzaMesesGracia', value)} unit="u" integer reference="CREDITOALZA!C24" issue={issueFor('alzaMesesGracia')} />
                   <NumberField id="alza-fee" label="Costo financiero" value={config.alzaFinancialFee} onChange={(value) => patch('alzaFinancialFee', value)} percent reference="CREDITOALZA!D21" issue={issueFor('alzaFinancialFee')} />
-                  <NumberField id="alza-guarantee" label="Garantía" value={config.alzaGarantiaPctTotal} onChange={(value) => patch('alzaGarantiaPctTotal', value)} percent reference="CREDITOALZA!E14" hint="Porcentaje del total del proyecto financiado. Reemplaza los antiguos 11,9% sobre capital y 10% sobre gastos: eran el mismo parámetro escrito de dos formas." issue={issueFor('alzaGarantiaPctTotal')} />
-                  <NumberField id="alza-expense-count" label="Cantidad de gastos" value={config.alzaCantidadGastos} onChange={(value) => patch('alzaCantidadGastos', value)} unit="unidades" integer reference="CREDITOALZA!C16" issue={issueFor('alzaCantidadGastos')} />
-                  <NumberField id="alza-expense-unit" label="Costo unitario" value={config.alzaCostoUnitarioClp} onChange={(value) => patch('alzaCostoUnitarioClp', value)} unit="CLP neto" integer reference="CREDITOALZA!C16" issue={issueFor('alzaCostoUnitarioClp')} />
-                  <NumberField id="alza-down-payment" label="Pie" value={config.alzaPieClp} onChange={(value) => patch('alzaPieClp', value)} unit="CLP IVA incluido" integer reference="CREDITOALZA!C18" issue={issueFor('alzaPieClp')} />
-                  <NumberField id="uf" label="Valor UF" value={config.valorUfClp} onChange={(value) => patch('valorUfClp', value)} unit="CLP/UF" reference="CREDITOALZA!C29" issue={issueFor('valorUfClp')} />
+                  <NumberField id="alza-guarantee" label="Garantía sobre el monto financiado" value={config.alzaGarantiaPctTotal} onChange={(value) => patch('alzaGarantiaPctTotal', value)} percent reference="CREDITOALZA!E14" hint="Porcentaje del total del proyecto financiado. Reemplaza los antiguos 11,9% sobre capital y 10% sobre gastos: eran el mismo parámetro escrito de dos formas." issue={issueFor('alzaGarantiaPctTotal')} />
+                  <NumberField id="alza-expense-count" label="Gastos notariales" value={config.alzaCantidadGastos} onChange={(value) => patch('alzaCantidadGastos', value)} unit="UF" reference="CREDITOALZA!C16" hint="Se valorizan al Valor UF configurado más abajo." issue={issueFor('alzaCantidadGastos')} />
+                  <NumberField id="alza-down-payment" label="Pie" value={config.alzaPieClp} onChange={(value) => patch('alzaPieClp', value)} unit="CLP" integer reference="CREDITOALZA!C18" issue={issueFor('alzaPieClp')} />
+                  <NumberField id="uf" label="Valor UF" value={config.valorUfClp} onChange={(value) => patch('valorUfClp', value)} unit="CLP" reference="CREDITOALZA!C29" issue={issueFor('valorUfClp')} />
                 </div>
                 {alzaPreview && <div className="mt-5 grid gap-3 sm:grid-cols-3"><Metric label="Total financiado" value={formatCLP(alzaPreview.totalFinanciado)} /><Metric label="Cuota mensual" value={formatCLP(alzaPreview.cuotaMensual)} tone="amber" /><Metric label="Cuota en UF" value={`${alzaPreview.cuotaUf.toLocaleString('es-CL', { maximumFractionDigits: 4 })} UF`} /></div>}
               </SectionCard>
@@ -628,22 +637,40 @@ export default function MantenedorPage() {
 
           {section === 'proyeccion' && (
             <SectionCard title="Proyección, reposiciones y garantías" description="Configura los supuestos usados para proyectar ahorro, reposiciones y garantías.">
+              <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900">Costo de reposición del inversor</p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                    Con el seguimiento activo, ambas reposiciones cuestan lo mismo que el inversor
+                    instalado ({formatCLP(costoInversorNeto)} en el caso simulado), igual que
+                    COT_ONGRID!G165 en el libro. Desactívalo para escribir montos fijos.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-pressed={config.reposicionSigueInversor}
+                  onClick={() => patch('reposicionSigueInversor', !config.reposicionSigueInversor)}
+                  className={`min-h-11 shrink-0 rounded-xl border px-3 text-sm font-bold ${config.reposicionSigueInversor ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-300 bg-white text-slate-600'}`}
+                >
+                  {config.reposicionSigueInversor ? 'Sigue al inversor' : 'Montos manuales'}
+                </button>
+              </div>
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                <NumberField id="ipc" label="IPC anual" value={config.ipcAnual - 1} onChange={(value) => patch('ipcAnual', 1 + value)} percent reference="FC*!C5" issue={issueFor('ipcAnual')} />
-                <NumberField id="degradation" label="Degradación anual" value={config.degradacionPaneles} onChange={(value) => patch('degradacionPaneles', value)} percent reference="FC*!C6" issue={issueFor('degradacionPaneles')} />
-                <NumberField id="period" label="Horizonte de evaluación" value={config.periodoEvaluacionAnios} onChange={(value) => patch('periodoEvaluacionAnios', value)} unit="años" integer reference="FC*!B38/B41" issue={issueFor('periodoEvaluacionAnios')} />
+                <NumberField id="ipc" label="Variación IPC anual" value={config.ipcAnual - 1} onChange={(value) => patch('ipcAnual', 1 + value)} percent reference="FC*!C5" issue={issueFor('ipcAnual')} />
+                <NumberField id="degradation" label="Degradación anual de paneles" value={config.degradacionPaneles} onChange={(value) => patch('degradacionPaneles', value)} percent reference="FC*!C6" issue={issueFor('degradacionPaneles')} />
+                <NumberField id="period" label="Horizonte de evaluación" value={config.periodoEvaluacionAnios} onChange={(value) => patch('periodoEvaluacionAnios', value)} unit="Años" integer reference="FC*!B38/B41" issue={issueFor('periodoEvaluacionAnios')} />
                 <NumberField id="discount" label="Tasa de descuento" value={config.tasaDescuentoAnual} onChange={(value) => patch('tasaDescuentoAnual', value)} percent reference="FC*!B39/B42" issue={issueFor('tasaDescuentoAnual')} />
-                <NumberField id="replacement-year-1" label="Primera reposición" value={config.anioReposicion1} onChange={(value) => patch('anioReposicion1', value)} unit="año" integer reference="FC Capital Propio!O30" issue={issueFor('anioReposicion1')} />
-                <NumberField id="replacement-1" label="Costo primera reposición" value={config.inversionRespuesto10} onChange={(value) => patch('inversionRespuesto10', value)} unit="CLP" reference="FC Capital Propio!O30" issue={issueFor('inversionRespuesto10')} />
-                <NumberField id="replacement-year-2" label="Segunda reposición" value={config.anioReposicion2} onChange={(value) => patch('anioReposicion2', value)} unit="año" integer reference="FC Capital Propio!Y30" issue={issueFor('anioReposicion2')} />
-                <NumberField id="replacement-2" label="Costo segunda reposición" value={config.inversionRespuesto22} onChange={(value) => patch('inversionRespuesto22', value)} unit="CLP" reference="FC Capital Propio!Y30" issue={issueFor('inversionRespuesto22')} />
-                <NumberField id="warranty-install" label="Garantía instalación" value={config.garantiaInstalacion} onChange={(value) => patch('garantiaInstalacion', value)} unit="años" integer reference="FINBACK!B62" issue={issueFor('garantiaInstalacion')} />
-                <NumberField id="co2" label="Factor mitigación CO₂" value={config.co2FactorKgPerKwh} onChange={(value) => patch('co2FactorKgPerKwh', value)} unit="kg/kWh" reference="FINBACK!B49" issue={issueFor('co2FactorKgPerKwh')} />
+                <NumberField id="replacement-year-1" label="Primera reposición de inversor" value={config.anioReposicion1} onChange={(value) => patch('anioReposicion1', value)} unit="Año" integer reference="FC Capital Propio!O30" issue={issueFor('anioReposicion1')} />
+                <NumberField id="replacement-1" label="Costo primera reposición" value={config.reposicionSigueInversor ? costoInversorNeto : config.inversionRespuesto10} onChange={(value) => patch('inversionRespuesto10', value)} unit="CLP" reference="FC Capital Propio!O30" readOnly={config.reposicionSigueInversor} hint={config.reposicionSigueInversor ? 'Precio del inversor seleccionado en Equipos y precio.' : undefined} issue={config.reposicionSigueInversor ? undefined : issueFor('inversionRespuesto10')} />
+                <NumberField id="replacement-year-2" label="Segunda reposición de inversor" value={config.anioReposicion2} onChange={(value) => patch('anioReposicion2', value)} unit="Año" integer reference="FC Capital Propio!Y30" issue={issueFor('anioReposicion2')} />
+                <NumberField id="replacement-2" label="Costo segunda reposición" value={config.reposicionSigueInversor ? costoInversorNeto : config.inversionRespuesto22} onChange={(value) => patch('inversionRespuesto22', value)} unit="CLP" reference="FC Capital Propio!Y30" readOnly={config.reposicionSigueInversor} hint={config.reposicionSigueInversor ? 'Precio del inversor seleccionado en Equipos y precio.' : undefined} issue={config.reposicionSigueInversor ? undefined : issueFor('inversionRespuesto22')} />
+                <NumberField id="warranty-install" label="Garantía de instalación" value={config.garantiaInstalacion} onChange={(value) => patch('garantiaInstalacion', value)} unit="Años" integer reference="FINBACK!B62" issue={issueFor('garantiaInstalacion')} />
+                <NumberField id="co2" label="Factor de mitigación CO₂" value={config.co2FactorKgPerKwh} onChange={(value) => patch('co2FactorKgPerKwh', value)} unit="kg/kWh" reference="FINBACK!B49" issue={issueFor('co2FactorKgPerKwh')} />
               </div>
               <details className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <summary className="cursor-pointer text-sm font-bold text-slate-900">Serie MPC anual · FC*!E4:AC4</summary>
                 <p className="mt-2 text-xs leading-relaxed text-slate-500">La variación anual de esta serie se suma al precio de energía después de aplicar IPC, igual que en las hojas de flujo del Excel.</p>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {Array.from({ length: config.periodoEvaluacionAnios }, (_, index) => (
                     <NumberField
                       key={index}
@@ -702,7 +729,7 @@ export default function MantenedorPage() {
                     <Metric
                       label="VAN del proyecto"
                       value={formatCLP(preview.proyeccion.vanClp)}
-                      detail={`Tasa de descuento: ${((config.tasaDescuentoAnual) * 100).toLocaleString('es-CL', { maximumFractionDigits: 2 })}%`}
+                      detail={`${preview.proyeccion.periodoAnios} años · tasa de descuento ${((config.tasaDescuentoAnual) * 100).toLocaleString('es-CL', { maximumFractionDigits: 2 })}%`}
                       tone="sky"
                     />
                   </div>
@@ -710,6 +737,13 @@ export default function MantenedorPage() {
                     Energía sin proyecto = cuenta que se sigue pagando + ahorro en la cuenta. El ingreso por
                     inyección va aparte: es dinero que entra, no cuenta que baja. Por eso el beneficio neto
                     puede superar el costo de la energía.
+                  </p>
+                  <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                    El VAN se calcula igual que FC Capital Propio: flujo del año = ahorro + inyección −
+                    reposición, descontado con exponente (periodo − 1) y partiendo de −precio del proyecto.
+                    Se acumula hasta el año {preview.proyeccion.periodoAnios}. Ojo al comparar contra el
+                    libro: la celda rotulada «VAN 25 Años» (B40) apunta a S33, que es el acumulado del año
+                    15, no del 25 (AC33).
                   </p>
                 </div>
               )}
