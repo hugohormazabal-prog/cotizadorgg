@@ -132,6 +132,12 @@ export interface CotizacionCompleta {
     costoEnergiaSinProyectoClp: number;
     /** Cuenta que se sigue pagando: la parte del consumo que el sistema no cubre. */
     costoEnergiaConProyectoClp: number;
+    /**
+     * Costo actual de electricidad durante el periodo: suma de la cuenta del
+     * caso × 12, creciendo cada año con el IPC configurado.
+     * Σ(n=1..periodo) cuentaMensual × 12 × ipcAnual^(n-1).
+     */
+    costoElectricidadActualClp: number;
     vanClp: number;
     ahorroAnualClp: number[];
     ahorroAcumuladoPorAnioClp: number[];
@@ -390,6 +396,7 @@ export function calcularCotizacion(params: {
   let reposicionesClp = 0;
   let costoEnergiaSinProyectoClp = 0;
   let costoEnergiaConProyectoClp = 0;
+  let costoElectricidadActualClp = 0;
   let vanClp = -precioProyectoClp;
   // COT_ONGRID!G165 (la celda que FC Capital Propio!O30/Y30 descuentan) es
   // cantidad × precio de venta del inversor, no su costo neto. Reponer el equipo
@@ -428,6 +435,9 @@ export function calcularCotizacion(params: {
     costoEnergiaSinProyectoClp += costoSinProyectoAnual;
     // La cuenta no desaparece: se sigue pagando el consumo que el sistema no cubre.
     costoEnergiaConProyectoClp += Math.max(0, costoSinProyectoAnual - ahorroCuentaAnual);
+    // Costo actual de electricidad: la cuenta del caso proyectada solo con IPC.
+    costoElectricidadActualClp +=
+      gastoCuentaClpMensual * 12 * Math.pow(cfg.ipcAnual, year - 1);
     // Las hojas FC descuentan el primer año con exponente cero (periodo - 1).
     vanClp += (savings - replacement) / Math.pow(1 + cfg.tasaDescuentoAnual, year - 1);
   }
@@ -453,6 +463,7 @@ export function calcularCotizacion(params: {
       costoReposicionInversorClp: Math.round(costoReposicionInversorClp),
       costoEnergiaSinProyectoClp: Math.round(costoEnergiaSinProyectoClp),
       costoEnergiaConProyectoClp: Math.round(costoEnergiaConProyectoClp),
+      costoElectricidadActualClp: Math.round(costoElectricidadActualClp),
       vanClp: Math.round(vanClp),
       ahorroAnualClp,
       ahorroAcumuladoPorAnioClp,

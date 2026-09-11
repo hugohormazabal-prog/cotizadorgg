@@ -699,26 +699,9 @@ export default function MantenedorPage() {
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     <Metric
-                      label="Energía sin proyecto"
-                      value={formatCLP(preview.proyeccion.costoEnergiaSinProyectoClp)}
-                      detail={`Lo que costaría la cuenta en ${preview.proyeccion.periodoAnios} años`}
-                    />
-                    <Metric
-                      label="Cuenta que se sigue pagando"
-                      value={formatCLP(preview.proyeccion.costoEnergiaConProyectoClp)}
-                      detail="Consumo que el sistema no alcanza a cubrir"
-                    />
-                    <Metric
-                      label="Ahorro en la cuenta"
-                      value={formatCLP(preview.proyeccion.ahorroCuentaClp)}
-                      detail="Autoconsumo: lo que deja de pagarse"
-                      tone="emerald"
-                    />
-                    <Metric
-                      label="Ingreso por inyección"
-                      value={formatCLP(preview.proyeccion.ingresoInyeccionClp)}
-                      detail="Excedentes vendidos a la red, no baja la cuenta"
-                      tone="amber"
+                      label={`Costo actual de electricidad por ${preview.proyeccion.periodoAnios} años`}
+                      value={formatCLP(preview.proyeccion.costoElectricidadActualClp)}
+                      detail={`Cuenta de ${formatCLP(scenarioSpend)} × 12, subiendo ${((config.ipcAnual - 1) * 100).toLocaleString('es-CL', { maximumFractionDigits: 2 })}% cada año`}
                     />
                     <Metric
                       label={`Beneficio neto en ${preview.proyeccion.periodoAnios} años`}
@@ -734,9 +717,10 @@ export default function MantenedorPage() {
                     />
                   </div>
                   <p className="mt-3 text-xs leading-relaxed text-slate-500">
-                    Energía sin proyecto = cuenta que se sigue pagando + ahorro en la cuenta. El ingreso por
-                    inyección va aparte: es dinero que entra, no cuenta que baja. Por eso el beneficio neto
-                    puede superar el costo de la energía.
+                    El costo actual de electricidad suma la cuenta del caso año a año: cada año es la cuenta
+                    mensual × 12 multiplicada por la variación IPC elevada a (año − 1), desde el año 1 hasta
+                    el {preview.proyeccion.periodoAnios}. Es el gasto si no se hace nada, sin descuentos ni
+                    serie MPC.
                   </p>
                   <p className="mt-2 text-xs leading-relaxed text-slate-500">
                     El VAN se calcula igual que FC Capital Propio: flujo del año = ahorro + inyección −
