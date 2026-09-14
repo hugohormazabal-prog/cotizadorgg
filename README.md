@@ -116,9 +116,36 @@ Estos puntos están marcados con comentarios `TODO(Hugo)` en el código:
   se pueden sustituir por ilustraciones de marca personalizadas.
 - **`supabase/migrations/0001_init.sql`** — ajustar `check` constraints,
   agregar columnas o políticas RLS adicionales según evolucione la lógica.
-- **Notificaciones de nuevo lead** (email/WhatsApp al equipo comercial al
-  recibir una cotización) — no implementado todavía; se sugiere una Supabase
-  Edge Function o un webhook desde la tabla `cotizaciones`.
+- **Notificaciones de nuevo lead** por WhatsApp al equipo comercial — no
+  implementado todavía.
+
+## Integración Odoo CRM
+
+Al avanzar de la etapa 5 a la 6, el navegador llama a `POST /api/cotizaciones`
+(`src/app/api/cotizaciones/route.ts`), que:
+
+1. Inserta la solicitud en `cotizaciones` con la service_role key.
+2. Después de responder, crea en Odoo (`src/lib/odoo.ts`, JSON-RPC):
+   contacto `res.partner` (reutilizado por email), oportunidad `crm.lead`
+   en el equipo `ODOO_CRM_TEAM` y la etapa `ODOO_CRM_STAGE` (o la primera del
+   pipeline), etiquetas `ODOO_CRM_TAG` + tipo de propiedad e ingreso esperado
+   (solo casas; empresa/departamento van "a detalle").
+3. Guarda `odoo_lead_id` / `odoo_sync_error` en la fila (migración 0004) y
+   envía el correo al cliente si `RESEND_API_KEY` está configurada.
+
+Configuración en Vercel: `ODOO_URL`, `ODOO_DB`, `ODOO_USER`, `ODOO_API_KEY`
+(API key de un usuario con permisos de Ventas/CRM, generada en Odoo →
+Preferencias → Seguridad de la cuenta), y opcionalmente `ODOO_CRM_TEAM`,
+`ODOO_CRM_STAGE`, `ODOO_CRM_TAG`, `RESEND_API_KEY`, `EMAIL_FROM`. Sin las
+variables de Odoo la solicitud se guarda igual y la sincronización se omite.
+
+Reintento automático: Vercel Cron (`vercel.json`) llama una vez al día a
+`GET /api/cotizaciones/sincronizar`, que vuelve a enviar a Odoo las
+cotizaciones de los últimos 7 días sin `odoo_lead_id`. Requiere la variable
+`CRON_SECRET` (Vercel la envía como `Authorization: Bearer …`).
+
+Solicitudes pendientes de sincronizar:
+`select id, created_at, odoo_sync_error from cotizaciones where odoo_lead_id is null order by created_at desc;`
 
 ## Diseño visual
 

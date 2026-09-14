@@ -2,7 +2,6 @@ import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import { CotizadorState } from './types';
 import { calcularCotizacion } from './estimaciones';
 import { getActiveConfigBundle, fasesPorTipoPropiedad } from './config';
-import { generarLeadOdoo } from './lead';
 import type { Region } from './config';
 
 export interface SubmitResult {
@@ -12,9 +11,9 @@ export interface SubmitResult {
 }
 
 /**
- * Envía la solicitud de cotización a Supabase (tabla `cotizaciones`,
- * ver supabase/migrations/0001_init.sql) y genera el Lead en Odoo +
- * correo formal con la propuesta (Edge Function `crear-lead-odoo`).
+ * Envía la solicitud de cotización a `/api/cotizaciones`, que la guarda en
+ * Supabase (tabla `cotizaciones`), crea la oportunidad en el pipeline de
+ * Odoo CRM y envía el correo con la propuesta (ver src/lib/odoo.ts).
  *
  * Se invoca al avanzar de la etapa 5 a la 6.
  *
@@ -74,42 +73,34 @@ export async function submitCotizacion(data: CotizadorState): Promise<SubmitResu
     return { ok: true, mode: 'demo' };
   }
 
-  const supabase = getSupabaseClient();
-  if (!supabase) {
-    return { ok: false, mode: 'demo', error: 'No se pudo inicializar el cliente de Supabase.' };
-  }
+  const fallo: SubmitResult = {
+    ok: false,
+    mode: 'supabase',
+    error: 'No pudimos registrar la solicitud en este momento. Reinténtalo más tarde.',
+  };
 
-  // El cliente de Supabase se tipa contra el esquema generado por el usuario
-  // (ver `npm run` de generación de tipos en supabase/README si se agrega más
-  // adelante). Hasta entonces, el cliente es genérico y aceptamos el payload
-  // tal como está construido arriba, validado contra `CotizadorState`.
-  let error: { message?: string } | null = null;
+  // La ruta del servidor guarda la fila y crea la oportunidad en Odoo CRM.
+  let res: Response;
   try {
-    const result = await (supabase.from('cotizaciones') as any).insert(payload);
-    error = result.error;
+    res = await fetch('/api/cotizaciones', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
   } catch {
-    return {
-      ok: false,
-      mode: 'supabase',
-      error: 'No pudimos registrar la solicitud en este momento. Reintentaremos más adelante.',
-    };
+    return fallo;
   }
+  if (res.ok) return { ok: true, mode: 'supabase' };
+  if (res.status !== 503) return fallo;
 
-  if (error) {
-    return {
-      ok: false,
-      mode: 'supabase',
-      error: 'No pudimos registrar la solicitud en este momento. Reinténtalo más tarde.',
-    };
+  // Servidor sin service_role key: se conserva el registro anónimo directo
+  // (sin sincronización con Odoo) para no perder la solicitud.
+  const supabase = getSupabaseClient();
+  if (!supabase) return fallo;
+  try {
+    const { error } = await (supabase.from('cotizaciones') as any).insert(payload);
+    return error ? fallo : { ok: true, mode: 'supabase' };
+  } catch {
+    return fallo;
   }
-
-  // Lead en Odoo + correo formal con la propuesta (best-effort, no bloquea).
-  void generarLeadOdoo(data, {
-    capacidadKwp: estimacion?.sistema.capacidadKwp ?? null,
-    numeroPaneles: estimacion?.sistema.numeroPaneles ?? null,
-    ahorroMensual: estimacion?.ahorro.ahorroMensualProm ?? null,
-    precioProyecto: estimacion?.precioProyectoClp ?? null,
-  });
-
-  return { ok: true, mode: 'supabase' };
 }
