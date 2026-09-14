@@ -95,6 +95,11 @@ class OdooClient {
   async findOrCreate(model: string, domain: Domain, values: Record<string, unknown>): Promise<number> {
     return (await this.searchOne(model, domain)) ?? this.call<number>(model, 'create', [values]);
   }
+
+  async hasField(model: string, field: string): Promise<boolean> {
+    const fields = await this.call<Record<string, unknown>>(model, 'fields_get', [[field]], { attributes: ['type'] });
+    return field in fields;
+  }
 }
 
 export interface LeadCotizador {
@@ -123,6 +128,14 @@ const TIPO_PROPIEDAD_LABEL: Record<string, string> = {
   casa_construccion: 'Casa en construcción',
   departamento: 'Departamento',
   empresa: 'Empresa',
+};
+
+// Etiquetas de segmento que el equipo comercial ya usa en el pipeline.
+const SEGMENTO_TAG: Record<string, string> = {
+  casa: 'Residencial',
+  casa_construccion: 'Residencial',
+  departamento: 'Residencial',
+  empresa: 'Comercial',
 };
 
 const clp = (n: number) => `$${Math.round(n).toLocaleString('es-CL')}`;
@@ -170,21 +183,29 @@ export async function crearOportunidadOdoo(cfg: OdooConfig, lead: LeadCotizador)
   const teamId = cfg.teamName ? await odoo.searchOne('crm.team', [['name', '=ilike', cfg.teamName]]) : null;
   if (cfg.teamName && !teamId) throw new Error(`Odoo: no existe el equipo de ventas "${cfg.teamName}"`);
 
-  // Etapas visibles en el pipeline del equipo (o compartidas: team_id vacío).
-  const stageScope: Domain = teamId ? ['|', ['team_id', '=', false], ['team_id', '=', teamId]] : [];
+  // Etapas visibles en el pipeline del equipo (o compartidas). Odoo 19 las
+  // liga con team_ids (many2many); versiones anteriores con team_id.
+  let stageScope: Domain = [];
+  if (teamId) {
+    const teamField = (await odoo.hasField('crm.stage', 'team_ids')) ? 'team_ids' : 'team_id';
+    stageScope = ['|', [teamField, '=', false], [teamField, 'in', [teamId]]];
+  }
   const stageId =
     (cfg.stageName ? await odoo.searchOne('crm.stage', [...stageScope, ['name', '=ilike', cfg.stageName]]) : null) ??
     (await odoo.searchOne('crm.stage', stageScope, 'sequence asc, id asc'));
 
-  const tagNames = [cfg.tagName, TIPO_PROPIEDAD_LABEL[lead.tipoPropiedad]].filter(Boolean) as string[];
+  const tagNames = [cfg.tagName, SEGMENTO_TAG[lead.tipoPropiedad]].filter(Boolean) as string[];
   const tagIds: number[] = [];
   for (const name of tagNames) {
     tagIds.push(await odoo.findOrCreate('crm.tag', [['name', '=ilike', name]], { name }));
   }
 
+  const mediumId = await odoo.searchOne('utm.medium', [['name', '=ilike', 'Website']]);
+
   const values: Record<string, unknown> = {
     type: 'opportunity',
-    name: `Cotización solar — ${lead.nombre}`,
+    // Mismo formato que las oportunidades web existentes: nombre/región/consumo.
+    name: [lead.nombre, lead.region, lead.consumoTexto].filter(Boolean).join('/'),
     partner_id: partnerId,
     contact_name: lead.nombre,
     email_from: email,
@@ -195,6 +216,7 @@ export async function crearOportunidadOdoo(cfg: OdooConfig, lead: LeadCotizador)
   };
   if (teamId) values.team_id = teamId;
   if (stageId) values.stage_id = stageId;
+  if (mediumId) values.medium_id = mediumId;
   if (!lead.requiereDetalle && lead.precioProyectoClp) values.expected_revenue = Math.round(lead.precioProyectoClp);
 
   return odoo.call<number>('crm.lead', 'create', [values]);

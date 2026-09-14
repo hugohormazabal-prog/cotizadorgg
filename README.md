@@ -139,6 +139,13 @@ Preferencias → Seguridad de la cuenta), y opcionalmente `ODOO_CRM_TEAM`,
 `ODOO_CRM_STAGE`, `ODOO_CRM_TAG`, `RESEND_API_KEY`, `EMAIL_FROM`. Sin las
 variables de Odoo la solicitud se guarda igual y la sincronización se omite.
 
+Valores de GG Electrics (Odoo.sh 19.0+e, verificados contra el pipeline real):
+`ODOO_URL=https://www.ggelectrics.cl`,
+`ODOO_DB=matiasgeimser-geimserodoo-main-34109337`,
+`ODOO_USER=fmorales@ggelectrics.cl`, `ODOO_CRM_TEAM=Sales`,
+`ODOO_CRM_STAGE=Inicial`. Las oportunidades llevan las etiquetas
+`Cotizador web` + `Residencial`/`Comercial` y el medio UTM `Website`.
+
 Reintento automático: Vercel Cron (`vercel.json`) llama una vez al día a
 `GET /api/cotizaciones/sincronizar`, que vuelve a enviar a Odoo las
 cotizaciones de los últimos 7 días sin `odoo_lead_id`. Requiere la variable
