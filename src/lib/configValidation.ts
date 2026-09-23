@@ -204,6 +204,10 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
   finiteRange(issues, 'factorSantander', config.factorSantander, 1, 5, 'Factor Santander');
   finiteRange(issues, 'cuotasMP', config.cuotasMP, 1, 120, 'Cuotas Mercado Pago');
   finiteRange(issues, 'cuotasSantander', config.cuotasSantander, 1, 120, 'Cuotas Santander');
+  finiteRange(issues, 'adicionalInversorGoodweClp', config.adicionalInversorGoodweClp, 0, 100_000_000, 'Adicional inversor GoodWe');
+  finiteRange(issues, 'adicionalBateriaPylontech512Clp', config.adicionalBateriaPylontech512Clp, 0, 100_000_000, 'Adicional batería Pylontech 5,12 kWh');
+  finiteRange(issues, 'adicionalBateriaPylontech16Clp', config.adicionalBateriaPylontech16Clp, 0, 100_000_000, 'Adicional batería Pylontech 16 kWh');
+  finiteRange(issues, 'adicionalSigenStorClp', config.adicionalSigenStorClp, 0, 100_000_000, 'Adicional SigenStor 7,5 kWh');
   finiteRange(issues, 'alzaTasaAnual', config.alzaTasaAnual, 0, 1, 'Tasa anual ALZA');
   finiteRange(issues, 'alzaMesesGracia', config.alzaMesesGracia, 0, 60, 'Meses de gracia ALZA');
   finiteRange(issues, 'cuotasALZA', config.cuotasALZA, 1, 600, 'Plazo ALZA');
@@ -220,6 +224,10 @@ export function validateConfig(config: ConfigCotizador, genZona: GeneracionPorZo
     ['maxPanelesMonofasico', config.maxPanelesMonofasico, 'Máximo de paneles'],
     ['cuotasMP', config.cuotasMP, 'Cuotas Mercado Pago'],
     ['cuotasSantander', config.cuotasSantander, 'Cuotas Santander'],
+    ['adicionalInversorGoodweClp', config.adicionalInversorGoodweClp, 'Adicional inversor GoodWe'],
+    ['adicionalBateriaPylontech512Clp', config.adicionalBateriaPylontech512Clp, 'Adicional batería Pylontech 5,12 kWh'],
+    ['adicionalBateriaPylontech16Clp', config.adicionalBateriaPylontech16Clp, 'Adicional batería Pylontech 16 kWh'],
+    ['adicionalSigenStorClp', config.adicionalSigenStorClp, 'Adicional SigenStor 7,5 kWh'],
     ['alzaMesesGracia', config.alzaMesesGracia, 'Meses de gracia ALZA'],
     ['cuotasALZA', config.cuotasALZA, 'Plazo ALZA'],
     ['alzaCantidadGastos', config.alzaCantidadGastos, 'Gastos notariales ALZA'],

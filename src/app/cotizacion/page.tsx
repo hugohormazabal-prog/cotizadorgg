@@ -114,7 +114,7 @@ export default function CotizacionPage() {
               visibility: previewHeight == null ? 'hidden' : 'visible',
             }}
           >
-            <QuotePdfDocument quote={quote} customer={data} />
+            <QuotePdfDocument quote={quote} customer={data} config={config} />
           </div>
         </div>
       </div>

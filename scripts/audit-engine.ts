@@ -28,6 +28,116 @@ assert.equal(golden.sistema.generacionAnualKwh, 8_878);
 assert.equal(golden.sistema.autoconsumoAnualKwh, 2_880);
 assert.equal(golden.sistema.inyeccionAnualKwh, 5_998);
 assert.equal(precioInyeccionKwhClp(CONFIG_DEFAULT), 125.786927);
+assert.equal(CONFIG_DEFAULT.schemaVersion, 12);
+assert.deepEqual([
+  CONFIG_DEFAULT.adicionalInversorGoodweClp,
+  CONFIG_DEFAULT.adicionalBateriaPylontech512Clp,
+  CONFIG_DEFAULT.adicionalBateriaPylontech16Clp,
+  CONFIG_DEFAULT.adicionalSigenStorClp,
+], [1_100_000, 2_428_600, 3_107_090, 3_845_310],
+  'Los cuatro adicionales deben conservar como defaults los valores históricos del PDF.');
+
+const {
+  adicionalInversorGoodweClp: _legacyGoodwe,
+  adicionalBateriaPylontech512Clp: _legacyBattery512,
+  adicionalBateriaPylontech16Clp: _legacyBattery16,
+  adicionalSigenStorClp: _legacySigenStor,
+  ...legacySchema11
+} = CONFIG_DEFAULT;
+const adicionalesMigrados = normalizeConfig({ ...legacySchema11, schemaVersion: 11 });
+assert.equal(adicionalesMigrados.schemaVersion, 12);
+assert.deepEqual([
+  adicionalesMigrados.adicionalInversorGoodweClp,
+  adicionalesMigrados.adicionalBateriaPylontech512Clp,
+  adicionalesMigrados.adicionalBateriaPylontech16Clp,
+  adicionalesMigrados.adicionalSigenStorClp,
+], [1_100_000, 2_428_600, 3_107_090, 3_845_310],
+  'Un bundle v11 debe migrar los adicionales ausentes a los valores históricos.');
+
+const adicionalesEditados = normalizeConfig({
+  ...CONFIG_DEFAULT,
+  adicionalInversorGoodweClp: 1_000_001,
+  adicionalBateriaPylontech512Clp: 2_000_002,
+  adicionalBateriaPylontech16Clp: 3_000_003,
+  adicionalSigenStorClp: 4_000_004,
+});
+assert.deepEqual([
+  adicionalesEditados.adicionalInversorGoodweClp,
+  adicionalesEditados.adicionalBateriaPylontech512Clp,
+  adicionalesEditados.adicionalBateriaPylontech16Clp,
+  adicionalesEditados.adicionalSigenStorClp,
+], [1_000_001, 2_000_002, 3_000_003, 4_000_004],
+  'La normalización v12 debe preservar los cuatro valores brutos editados en el mantenedor.');
+
+// Empresa/departamento: la estimación comercial no se paneliza ni depende de
+// la generación regional. Sus dos entradas deben respetar exactamente 150
+// CLP/kWh y un rendimiento específico de 1.440 kWh/kWp al año, incluso en los
+// extremos admitidos por la interfaz.
+function detailedQuote(input: { montoClp: number | null; consumoKwh: number | null; unidad: 'clp' | 'kwh'; fases: 1 | 3 }) {
+  const result = calcularCotizacion({
+    ...input,
+    modo: 'detallada',
+    region: 'Metropolitana',
+    config: CONFIG_DEFAULT,
+    generacionPorZona: GENERACION_POR_ZONA,
+  });
+  assert.ok(result, 'El modo detallado debe producir una estimación.');
+  return result;
+}
+
+const detailedCases = [
+  { input: { montoClp: 100_000, consumoKwh: null, unidad: 'clp' as const, fases: 3 as const }, kwp: 100_000 * 12 / 150 / 1_440, generation: 8_000, savings: 100_000 },
+  { input: { montoClp: 8_000_000, consumoKwh: null, unidad: 'clp' as const, fases: 3 as const }, kwp: 8_000_000 * 12 / 150 / 1_440, generation: 640_000, savings: 8_000_000 },
+  { input: { montoClp: null, consumoKwh: 2_000, unidad: 'kwh' as const, fases: 1 as const }, kwp: 2_000 * 12 / 1_440, generation: 24_000, savings: 300_000 },
+  { input: { montoClp: null, consumoKwh: 50_000, unidad: 'kwh' as const, fases: 1 as const }, kwp: 50_000 * 12 / 1_440, generation: 600_000, savings: 7_500_000 },
+] as const;
+
+for (const testCase of detailedCases) {
+  const result = detailedQuote(testCase.input);
+  assert.equal(result.sistema.capacidadKwp, Math.round(testCase.kwp * 100) / 100,
+    'El sistema detallado debe aplicar la fórmula 150/1.440 y redondear solo la salida visible.');
+  assert.equal(result.sistema.generacionAnualKwh, testCase.generation,
+    'La generación detallada debe ser kWp × 1.440.');
+  assert.equal(result.ahorro.ahorroMensualProm, testCase.savings,
+    'El ahorro detallado debe ser kWp × 1.440 × 150 / 12.');
+  assert.equal(result.consumoKwhMensual, Math.round(testCase.input.unidad === 'clp' ? testCase.input.montoClp! / 150 : testCase.input.consumoKwh!),
+    'El consumo guardado para empresa/departamento debe corresponder a la tarifa de 150 CLP/kWh, sin proyección residencial.');
+}
+
+// Casa: expresar el mismo consumo como kWh o como su cuenta equivalente no
+// puede alterar dimensionamiento, precio, ahorro ni retorno. La proyección se
+// fija en 1 para aislar únicamente la conversión kWh × precio configurado.
+const residentialParityConfig = { ...CONFIG_DEFAULT, proyeccionConsumo: 1 };
+const residentialKwh = 350;
+const residentialByKwh = calcularCotizacion({
+  montoClp: null,
+  consumoKwh: residentialKwh,
+  unidad: 'kwh',
+  modo: 'residencial',
+  region: 'Metropolitana',
+  fases: 1,
+  config: residentialParityConfig,
+  generacionPorZona: GENERACION_POR_ZONA,
+});
+const residentialByClp = calcularCotizacion({
+  montoClp: residentialKwh * residentialParityConfig.precioKwhClp,
+  consumoKwh: null,
+  unidad: 'clp',
+  modo: 'residencial',
+  region: 'Metropolitana',
+  fases: 1,
+  config: residentialParityConfig,
+  generacionPorZona: GENERACION_POR_ZONA,
+});
+assert.ok(residentialByKwh && residentialByClp, 'Ambas entradas residenciales equivalentes deben cotizar.');
+assert.equal(residentialByKwh.consumoKwhMensual, residentialByClp.consumoKwhMensual);
+assert.equal(residentialByKwh.gastoCuentaClpMensual, residentialByClp.gastoCuentaClpMensual);
+assert.deepEqual(residentialByKwh.sistema, residentialByClp.sistema,
+  'Casa debe dimensionar el mismo sistema para kWh=X y CLP=X×precioKwh.');
+assert.deepEqual(residentialByKwh.ahorro, residentialByClp.ahorro,
+  'Casa debe conservar el mismo ahorro para entradas equivalentes.');
+assert.equal(residentialByKwh.precioProyectoClp, residentialByClp.precioProyectoClp);
+assert.equal(residentialByKwh.paybackAnios, residentialByClp.paybackAnios);
 
 const material: PartidaCostoKwp = {
   id: 'prueba', nombre: 'Prueba', categoria: 'materiales', tipoCalculo: 'fijo-variable',
@@ -82,7 +192,7 @@ const overlap = { ...CONFIG_DEFAULT, reglasInversorPorPaneles: CONFIG_DEFAULT.re
 assert.equal(hasErrors(validateConfig(overlap, GENERACION_POR_ZONA)), true, 'Los rangos solapados deben rechazarse.');
 
 const migrated = normalizeConfig({ ...CONFIG_DEFAULT, schemaVersion: 8, precioNudoInyeccionClp: 105.7033, ivaInyeccion: 1.19 });
-assert.equal(migrated.schemaVersion, 11);
+assert.equal(migrated.schemaVersion, 12);
 assert.ok(Math.abs(migrated.precioNudoInyeccionClp - 125.786927) < 1e-9);
 assert.equal(migrated.ivaInyeccion, 1);
 assert.equal(migrated.partidasCostoKwp.find((item) => item.id === 'puesta-marcha')?.categoria, 'materiales');
@@ -158,4 +268,4 @@ const mensajes = validateConfig(rota, GENERACION_POR_ZONA).filter((i) => i.sever
 assert.ok(mensajes.length >= 2 && new Set(mensajes).size === mensajes.length, 'Cada error debe nombrar su propio tramo.');
 assert.ok(mensajes.every((m) => /Paneles \d+ a \d+:/.test(m)), 'El error debe empezar identificando el tramo.');
 
-console.log('Integridad OK: costos fijos/variables, regiones, rangos de inversor, inyección con IVA, financiamiento y migración.');
+console.log('Integridad OK: modo detallado, paridad residencial, adicionales, costos, inversores, financiamiento y migración.');

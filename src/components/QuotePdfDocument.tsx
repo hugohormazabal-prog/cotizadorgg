@@ -2,12 +2,14 @@
 
 import type { CotizacionCompleta, FinanciamientoOpcion } from '@/lib/estimaciones';
 import { formatCLP, formatKwh } from '@/lib/estimaciones';
+import type { ConfigCotizador } from '@/lib/config';
 import type { CotizadorState } from '@/lib/types';
 import styles from './quote-pdf-document.module.css';
 
 type QuotePdfDocumentProps = {
   quote: CotizacionCompleta;
   customer: CotizadorState;
+  config: ConfigCotizador;
 };
 
 const COMPANY = {
@@ -44,17 +46,21 @@ function formatUf(value: number | undefined) {
   return `${(value ?? 0).toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} UF`;
 }
 
-function inverterCapacity(capacityKwp: number) {
-  const commercialSizes = [3, 5, 6, 8, 10, 12, 15, 20];
-  return commercialSizes.reduce((closest, size) => (
-    Math.abs(size - capacityKwp) < Math.abs(closest - capacityKwp) ? size : closest
-  ));
-}
-
 function short(value: string, maximum = 46) {
   const normalized = value.trim();
   if (!normalized) return 'Por confirmar';
   return normalized.length <= maximum ? normalized : `${normalized.slice(0, maximum - 1).trim()}…`;
+}
+
+function inverterArtwork(model: string): { src: string; alt: string } {
+  const normalized = model.toLocaleLowerCase('es-CL');
+  if (normalized.includes('huawei')) {
+    return { src: '/quote-assets/inverter-huawei.png', alt: 'Inversor Huawei de la propuesta' };
+  }
+  if (normalized.includes('sigen') || normalized.includes('sigenergy')) {
+    return { src: '/quote-assets/inverter-sigen.png', alt: 'Inversor Sigen de la propuesta' };
+  }
+  return { src: '/quote-assets/hybrid-inverter.png', alt: 'Inversor de la propuesta' };
 }
 
 function SectionBar({ children, orange = false }: { children: React.ReactNode; orange?: boolean }) {
@@ -122,6 +128,7 @@ function PageOne({ quote, customer }: QuotePdfDocumentProps) {
   const coverage = quote.gastoCuentaClpMensual > 0 ? billReduction / quote.gastoCuentaClpMensual : 0;
   const listPrice = mercadoPago?.montoTotal ?? quote.precioProyectoClp;
   const number = quoteNumber(customer, quote);
+  const inverter = inverterArtwork(quote.sistema.marcaInversor);
 
   return (
     <section className={styles.page} aria-label="Resumen de la cotización">
@@ -168,7 +175,7 @@ function PageOne({ quote, customer }: QuotePdfDocumentProps) {
           <div className={styles.solarEquipment}>
             <div className={styles.panelGroup}><img src="/quote-assets/solar-panel.png" alt="Panel solar Tier 1" /></div>
             <div className={styles.panelGroup}><img src="/quote-assets/warranty-10.png" alt="10 años de garantía" /></div>
-            <div className={styles.panelGroup}><img src="/quote-assets/inverter-sigen.png" alt="Inversor de la propuesta" /></div>
+            <div className={styles.panelGroup}><img src={inverter.src} alt={inverter.alt} /></div>
           </div>
           <strong className={styles.featureLead}>{quote.sistema.numeroPaneles} paneles de {quote.sistema.potenciaPanelW} W y 1 {quote.sistema.marcaInversor} de {quote.sistema.potenciaInversorKw} kW</strong>
           <p>Paneles TIER 1 e inversor on-grid con 10 años de garantía. Instalación, trámite y certificación SEC TE4, app de monitoreo.</p>
@@ -210,16 +217,17 @@ function PageOne({ quote, customer }: QuotePdfDocumentProps) {
 }
 
 function UpgradeCard({ title, product, detail, price, image }: { title: string; product: string; detail: string; price: string; image: string }) {
+  const isBattery = image.includes('battery-');
   return (
     <div className={styles.upgradeCard}>
       <div className={styles.upgradeHeader}><span>{title}</span></div>
-      <div className={styles.upgradeVisual}><img src={image} alt="" /><div><strong>{product}</strong><span>{detail}</span></div></div>
+      <div className={`${styles.upgradeVisual} ${isBattery ? styles.upgradeVisualBattery : ''}`}><img src={image} alt="" /><div><strong>{product}</strong><span>{detail}</span></div></div>
       <div className={styles.upgradePrice}><span>Valor adicional</span><b>{price}</b></div>
     </div>
   );
 }
 
-function PageTwo({ quote, customer }: QuotePdfDocumentProps) {
+function PageTwo({ quote, customer, config }: QuotePdfDocumentProps) {
   const annualBill = quote.gastoCuentaClpMensual * 12;
   const number = quoteNumber(customer, quote);
 
@@ -236,7 +244,7 @@ function PageTwo({ quote, customer }: QuotePdfDocumentProps) {
           <strong>-{formatCLP(quote.ahorro.ahorroTotalAnual)}</strong><span>Promedio {formatCLP(quote.ahorro.ahorroMensualProm)} al mes</span>
           <small>Autoconsumo {formatKwh(quote.sistema.autoconsumoAnualKwh)} · Inyección {formatKwh(quote.sistema.inyeccionAnualKwh)}</small>
         </div>
-        <div className={styles.sourceCard}>
+        <div className={`${styles.sourceCard} ${styles.sourceCardGas}`}>
           <h2>Menos cuenta de gas · no incluido</h2><p>Ejemplo de un hogar que hoy gasta {formatCLP(1_200_000)} al año</p>
           <strong>-{formatCLP(960_000)}</strong><span>Ahorro promedio de {formatCLP(80_000)} al mes en gas después de instalar una bomba de calor de 270 L de ACS</span>
         </div>
@@ -255,12 +263,12 @@ function PageTwo({ quote, customer }: QuotePdfDocumentProps) {
       <SectionBar orange>Cómo puede crecer tu sistema más adelante si cambias a un inversor híbrido</SectionBar>
       <div className={styles.growthGrid}>
         <div className={styles.hybridCard}>
-          <div><span>Cambia a un inversor GoodWe híbrido</span><strong>{inverterCapacity(quote.sistema.capacidadKwp)} kW</strong><small>GoodWe</small><b>Respaldo de emergencia (*) listo para crecer en almacenamiento</b></div>
-          <img src="/quote-assets/inverter-goodwe.png" alt="Inversor híbrido GoodWe" /><div className={styles.hybridPrice}><span>Valor adicional</span><b>{formatCLP(1_100_000)}</b></div>
+          <div><span>Cambia a un inversor GoodWe híbrido</span><strong>8 kW</strong><small>GoodWe</small><b>Respaldo de emergencia (*) listo para crecer en almacenamiento</b></div>
+          <img src="/quote-assets/inverter-goodwe.png" alt="Inversor híbrido GoodWe de 8 kW" /><div className={styles.hybridPrice}><span>Valor adicional</span><b>{formatCLP(config.adicionalInversorGoodweClp)}</b></div>
         </div>
-        <UpgradeCard title="Opción 1 al comprar inversor híbrido" product="Suma una batería Pylontech Fidus de 5,12 kWh" detail="Energía disponible de noche y ante cortes de luz" price={formatCLP(2_428_600)} image="/quote-assets/battery-pylontech.png" />
-        <UpgradeCard title="Opción 2 al comprar inversor híbrido" product="Suma una batería Pylontech de 16 kWh" detail="Mayor energía disponible de noche y ante cortes de luz" price={formatCLP(3_107_090)} image="/quote-assets/battery-tower.png" />
-        <UpgradeCard title="Opción 3 compra lo más premium y elegante" product="Cambia a un inversor SigenStor Neo con 7,5 kWh" detail="Diseño premium, ultra compacto y estético" price={formatCLP(3_845_310)} image="/quote-assets/sigenergy-system.png" />
+        <UpgradeCard title="Opción 1 al comprar inversor híbrido" product="Suma una batería Pylontech Fidus de 5,12 kWh" detail="Energía disponible de noche y ante cortes de luz" price={formatCLP(config.adicionalBateriaPylontech512Clp)} image="/quote-assets/battery-pylontech.png" />
+        <UpgradeCard title="Opción 2 al comprar inversor híbrido" product="Suma una batería Pylontech de 16 kWh" detail="Mayor energía disponible de noche y ante cortes de luz" price={formatCLP(config.adicionalBateriaPylontech16Clp)} image="/quote-assets/battery-tower.png" />
+        <UpgradeCard title="Opción 3 compra lo más premium y elegante" product="Cambia a un inversor SigenStor Neo con 7,5 kWh" detail="Diseño premium, ultra compacto y estético" price={formatCLP(config.adicionalSigenStorClp)} image="/quote-assets/sigenergy-system.png" />
       </div>
       <p className={styles.growthNote}>Todos los valores incluyen IVA e instalación. Puedes incorporarlos ahora o en el futuro.<br />(*) El inversor permite dar respaldo ante cortes de luz sin baterías siempre que la generación sea mayor al consumo (respaldo de emergencia con limitaciones).</p>
 

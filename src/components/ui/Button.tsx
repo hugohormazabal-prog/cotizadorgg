@@ -44,7 +44,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-        <span className={clsx(loading && 'opacity-80')}>{children}</span>
+        <span className={clsx('inline-flex items-center justify-center gap-1.5', loading && 'opacity-80')}>{children}</span>
       </motion.button>
     );
   }

@@ -165,6 +165,12 @@ export interface ConfigCotizador {
   factorSantander: number;
   cuotasSantander: number;
 
+  // Valores brutos mostrados en la sección de adicionales de la cotización.
+  adicionalInversorGoodweClp: number;
+  adicionalBateriaPylontech512Clp: number;
+  adicionalBateriaPylontech16Clp: number;
+  adicionalSigenStorClp: number;
+
   // CREDITOALZA. La cuota se deriva de estas variables mediante PMT.
   alzaTasaAnual: number;
   alzaMesesGracia: number;
@@ -187,7 +193,7 @@ const CAPACIDAD_REFERENCIA_KWP = 3.72;
 const EQUIPOS_REFERENCIA_POR_KWP = EQUIPOS_REFERENCIA_NETO / CAPACIDAD_REFERENCIA_KWP;
 
 export const CONFIG_DEFAULT: ConfigCotizador = {
-  schemaVersion: 11,
+  schemaVersion: 12,
   precioKwhClp: 250,
   precioNudoInyeccionClp: 125.786927,
   ivaInyeccion: 1,
@@ -244,6 +250,11 @@ export const CONFIG_DEFAULT: ConfigCotizador = {
   cuotasMP: 12,
   factorSantander: 1 / (1 - 0.13 * 1.19),
   cuotasSantander: 48,
+
+  adicionalInversorGoodweClp: 1_100_000,
+  adicionalBateriaPylontech512Clp: 2_428_600,
+  adicionalBateriaPylontech16Clp: 3_107_090,
+  adicionalSigenStorClp: 3_845_310,
 
   alzaTasaAnual: 0.0639,
   alzaMesesGracia: 3,
@@ -479,6 +490,7 @@ export function normalizeConfig(value: unknown): ConfigCotizador {
   const migratingToV8 = Number(raw.schemaVersion ?? 0) < 8;
   const migratingToV9 = Number(raw.schemaVersion ?? 0) < 9;
   const migratingToV10 = Number(raw.schemaVersion ?? 0) < 10;
+  const migratingToV12 = Number(raw.schemaVersion ?? 0) < 12;
   const normalized: Record<string, unknown> = { ...CONFIG_DEFAULT };
   for (const [key, defaultValue] of Object.entries(CONFIG_DEFAULT)) {
     if (!(key in raw)) continue;
@@ -548,6 +560,14 @@ export function normalizeConfig(value: unknown): ConfigCotizador {
     // El antiguo "garantía sobre capital" era r × IVA. Recuperamos r.
     const iva = typeof raw.ivaVenta === 'number' && raw.ivaVenta > 0 ? raw.ivaVenta : CONFIG_DEFAULT.ivaVenta;
     merged.alzaGarantiaPctTotal = raw.alzaGarantiaCapital / iva;
+  }
+  if (migratingToV12) {
+    // Los bundles anteriores no tenían los adicionales del PDF. Se agregan
+    // con los valores históricos para conservar exactamente su salida.
+    merged.adicionalInversorGoodweClp = CONFIG_DEFAULT.adicionalInversorGoodweClp;
+    merged.adicionalBateriaPylontech512Clp = CONFIG_DEFAULT.adicionalBateriaPylontech512Clp;
+    merged.adicionalBateriaPylontech16Clp = CONFIG_DEFAULT.adicionalBateriaPylontech16Clp;
+    merged.adicionalSigenStorClp = CONFIG_DEFAULT.adicionalSigenStorClp;
   }
   if (migratingToV9) {
     const legacyItems = Array.isArray(raw.partidasCostoKwp) ? raw.partidasCostoKwp : [];

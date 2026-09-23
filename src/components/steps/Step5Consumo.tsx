@@ -14,8 +14,8 @@ import { fasesPorTipoPropiedad, requiereCotizacionDetallada } from '@/lib/config
 import { useConfig } from '@/lib/useConfig';
 import type { Region } from '@/lib/config';
 
-const RANGO_CLP = { min: 10_000, max: 3_000_000, step: 10_000 };
-const RANGO_KWH = { min: 50, max: 15_000, step: 50 };
+const RANGO_CLP_DETALLADA = { min: 100_000, max: 8_000_000, step: 100_000 };
+const RANGO_KWH_DETALLADA = { min: 2_000, max: 50_000, step: 100 };
 // Casa / casa en construcción usan rangos acotados al segmento residencial.
 const RANGO_CLP_CASA = { min: 0, max: 500_000, step: 10_000 };
 const RANGO_KWH_CASA = { min: 0, max: 2_000, step: 50 };
@@ -36,11 +36,14 @@ export function Step5Consumo() {
 
   const rango =
     consumo.unidad === 'clp'
-      ? esCasa ? RANGO_CLP_CASA : RANGO_CLP
-      : esCasa ? RANGO_KWH_CASA : RANGO_KWH;
+      ? esCasa ? RANGO_CLP_CASA : RANGO_CLP_DETALLADA
+      : esCasa ? RANGO_KWH_CASA : RANGO_KWH_DETALLADA;
 
-  const valorBruto =
-    consumo.unidad === 'clp' ? consumo.montoClp ?? 90_000 : consumo.consumoKwh ?? 350;
+  const montoDefault = detallada ? RANGO_CLP_DETALLADA.min : 90_000;
+  const consumoDefault = detallada ? RANGO_KWH_DETALLADA.min : 350;
+  const valorBruto = consumo.unidad === 'clp'
+    ? consumo.montoClp ?? montoDefault
+    : consumo.consumoKwh ?? consumoDefault;
   // Clamp al rango vigente (p. ej. si el valor persistido excede el nuevo máximo de Casa)
   const valorActual = Math.min(Math.max(valorBruto, rango.min), rango.max);
 
@@ -48,8 +51,11 @@ export function Step5Consumo() {
     if (!region) return null;
     return estimarRapido({
       ...consumo,
+      montoClp: consumo.unidad === 'clp' ? valorActual : consumo.montoClp,
+      consumoKwh: consumo.unidad === 'kwh' ? valorActual : consumo.consumoKwh,
       region,
       fases: fasesPorTipoPropiedad(tipoPropiedad),
+      modo: detallada ? 'detallada' : 'residencial',
       config,
       generacionPorZona: genZona,
     });
@@ -59,10 +65,17 @@ export function Step5Consumo() {
   const isValid = valorActual > 0;
 
   const setUnidad = (unidad: UnidadConsumo) => {
+    const target = unidad === 'clp'
+      ? (detallada ? RANGO_CLP_DETALLADA : RANGO_CLP_CASA)
+      : (detallada ? RANGO_KWH_DETALLADA : RANGO_KWH_CASA);
+    const raw = unidad === 'clp'
+      ? consumo.montoClp ?? montoDefault
+      : consumo.consumoKwh ?? consumoDefault;
+    const normalized = Math.min(Math.max(raw, target.min), target.max);
     updateConsumo({
       unidad,
-      montoClp: unidad === 'clp' ? consumo.montoClp ?? 90_000 : consumo.montoClp,
-      consumoKwh: unidad === 'kwh' ? consumo.consumoKwh ?? 350 : consumo.consumoKwh,
+      montoClp: unidad === 'clp' ? normalized : consumo.montoClp,
+      consumoKwh: unidad === 'kwh' ? normalized : consumo.consumoKwh,
     });
   };
 
@@ -77,18 +90,19 @@ export function Step5Consumo() {
   const handleNext = () => {
     const consumoNormalizado =
       consumo.unidad === 'clp'
-        ? { ...consumo, montoClp: consumo.montoClp ?? valorActual }
-        : { ...consumo, consumoKwh: consumo.consumoKwh ?? valorActual };
+        ? { ...consumo, montoClp: valorActual }
+        : { ...consumo, consumoKwh: valorActual };
 
     // El slider muestra un valor inicial útil aunque el usuario no lo mueva.
     // Persistimos ese mismo valor antes de calcular/enviar la propuesta.
-    if (consumo.unidad === 'clp' && consumo.montoClp == null) {
+    if (consumo.unidad === 'clp' && consumo.montoClp !== valorActual) {
       updateConsumo({ montoClp: valorActual });
-    } else if (consumo.unidad === 'kwh' && consumo.consumoKwh == null) {
+    } else if (consumo.unidad === 'kwh' && consumo.consumoKwh !== valorActual) {
       updateConsumo({ consumoKwh: valorActual });
     }
 
-    if (!leadEnviado) {
+    // Empresa y departamento envían la solicitud sólo al pulsar el CTA del resumen.
+    if (!detallada && !leadEnviado) {
       void submitCotizacion({ ...data, consumo: consumoNormalizado })
         .then((result) => {
           if (result.ok) setLeadEnviado(true);
@@ -135,7 +149,9 @@ export function Step5Consumo() {
         <div className="rounded-lg border border-white/40 bg-white/40 p-3">
           <div className="mb-2 flex items-end justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-700">
-              {consumo.unidad === 'clp' ? 'Gasto mensual en electricidad' : 'Consumo mensual aprox.'}
+              {consumo.unidad === 'clp'
+                ? 'Gasto mensual en electricidad'
+                : detallada ? 'Consumo neto mensual aprox.' : 'Consumo mensual aprox.'}
             </span>
             <motion.span
               key={`${consumo.unidad}-${valorActual}`}
@@ -179,7 +195,7 @@ export function Step5Consumo() {
                 icon={<SunMedium className="h-4 w-4" />}
                 label="Sistema sugerido"
                 value={`${estimacion.capacidadKwp.toFixed(2)} kWp`}
-                sub={`${estimacion.numeroPaneles} paneles`}
+                sub={detallada ? undefined : `${estimacion.numeroPaneles} paneles`}
               />
               {/* Retorno solo para flujo residencial. Empresa/depto
                   reciben cotización a detalle y no ven oferta de precio.
@@ -205,8 +221,9 @@ export function Step5Consumo() {
         </AnimatePresence>
 
         <p className="text-xs leading-relaxed text-slate-600">
-          * Estimación preliminar basada en el promedio de tu zona. Los valores finales se ajustarán
-          en la cotización técnica de nuestro equipo.
+          {detallada
+            ? '* Estimación basada sobre una tarifa de cliente regulado AT4.3 ajustada a un rendimiento específico de 1440 kWh por kWp con un perfil de consumo en horario diurno'
+            : '* Estimación preliminar basada en el promedio de tu zona. Los valores finales se ajustarán en la cotización técnica de nuestro equipo.'}
         </p>
       </div>
     </StepShell>

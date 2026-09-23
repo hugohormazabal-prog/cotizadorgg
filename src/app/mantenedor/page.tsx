@@ -206,7 +206,8 @@ function seccionDelCampo(field: string): SectionId {
   if (raiz === 'partidasCostoKwp' || raiz === 'variablesVinculantesKwp'
     || raiz === 'costoMaterialesGeneralesPorKwpNeto' || raiz === 'costoServiciosPorKwpNeto') return 'variables';
   if (raiz.startsWith('alza') || raiz === 'cuotasALZA' || raiz === 'valorUfClp' || raiz === 'factorMP'
-    || raiz === 'factorSantander' || raiz === 'cuotasMP' || raiz === 'cuotasSantander') return 'financiamiento';
+    || raiz === 'factorSantander' || raiz === 'cuotasMP' || raiz === 'cuotasSantander'
+    || raiz.startsWith('adicional')) return 'financiamiento';
   if (raiz === 'genZona') return 'generacion';
   if (raiz === 'mpcAnualClpKwh' || raiz === 'ipcAnual' || raiz === 'degradacionPaneles'
     || raiz === 'tasaDescuentoAnual' || raiz === 'periodoEvaluacionAnios' || raiz.startsWith('anioReposicion')
@@ -611,6 +612,14 @@ export default function MantenedorPage() {
 
           {section === 'financiamiento' && (
             <div className="space-y-5">
+              <SectionCard title="Adicionales de la cotización" description="Define los cuatro valores finales que aparecen en la segunda página de la cotización. Son montos brutos independientes: el motor no les aplica fórmulas ni recargos.">
+                <div className="grid gap-5 md:grid-cols-2">
+                  <NumberField id="additional-goodwe" label="Inversor híbrido GoodWe 8 kW" value={config.adicionalInversorGoodweClp} onChange={(value) => patch('adicionalInversorGoodweClp', value)} unit="CLP" integer reference="Cotización pág. 2" issue={issueFor('adicionalInversorGoodweClp')} />
+                  <NumberField id="additional-battery-512" label="Batería Pylontech Fidus 5,12 kWh" value={config.adicionalBateriaPylontech512Clp} onChange={(value) => patch('adicionalBateriaPylontech512Clp', value)} unit="CLP" integer reference="Cotización pág. 2" issue={issueFor('adicionalBateriaPylontech512Clp')} />
+                  <NumberField id="additional-battery-16" label="Batería Pylontech 16 kWh" value={config.adicionalBateriaPylontech16Clp} onChange={(value) => patch('adicionalBateriaPylontech16Clp', value)} unit="CLP" integer reference="Cotización pág. 2" issue={issueFor('adicionalBateriaPylontech16Clp')} />
+                  <NumberField id="additional-sigenstor" label="Sistema SigenStor Neo 7,5 kWh" value={config.adicionalSigenStorClp} onChange={(value) => patch('adicionalSigenStorClp', value)} unit="CLP" integer reference="Cotización pág. 2" issue={issueFor('adicionalSigenStorClp')} />
+                </div>
+              </SectionCard>
               <SectionCard title="Tarjetas" description="Configura el recargo total y el número de cuotas de cada medio de pago.">
                 <div className="grid gap-5 md:grid-cols-2">
                   <NumberField id="mp-factor" label="Recargo Mercado Pago" value={config.factorMP - 1} onChange={(value) => patch('factorMP', 1 + value)} percent min={0} max={4} reference="COT_GRANEL!D153" issue={issueFor('factorMP')} />

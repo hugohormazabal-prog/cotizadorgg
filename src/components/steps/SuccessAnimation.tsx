@@ -4,19 +4,21 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { useCotizadorStore } from '@/lib/store';
 import { formatCLP, calcularCotizacion } from '@/lib/estimaciones';
-import { getConfig, getGeneracionPorZona, fasesPorTipoPropiedad } from '@/lib/config';
+import { getConfig, getGeneracionPorZona, fasesPorTipoPropiedad, requiereCotizacionDetallada } from '@/lib/config';
 import type { Region } from '@/lib/config';
 
 export function SuccessAnimation() {
   const reset = useCotizadorStore((s) => s.reset);
   const data = useCotizadorStore((s) => s.data);
   const { consumo, ubicacion, contacto } = data;
+  const detallada = requiereCotizacionDetallada(data.propiedad.tipoPropiedad);
 
   const cotizacion = ubicacion.region
     ? calcularCotizacion({
         ...consumo,
         region: ubicacion.region as Region,
         fases: fasesPorTipoPropiedad(data.propiedad.tipoPropiedad),
+        modo: detallada ? 'detallada' : 'residencial',
         config: getConfig(),
         generacionPorZona: getGeneracionPorZona(),
       })
@@ -116,17 +118,19 @@ export function SuccessAnimation() {
           Coordinar por WhatsApp
         </a>
 
-        <a
-          href="/cotizacion"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/50 bg-white/60 px-6 py-2.5 text-sm font-semibold text-slate-700 hover:bg-white/80 backdrop-blur-sm transition-colors"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          Ver cotización PDF
-        </a>
+        {!detallada && (
+          <a
+            href="/cotizacion"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/50 bg-white/60 px-6 py-2.5 text-sm font-semibold text-slate-700 hover:bg-white/80 backdrop-blur-sm transition-colors"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Ver cotización PDF
+          </a>
+        )}
 
         <Button type="button" variant="ghost" onClick={reset}>
           Crear una nueva cotización

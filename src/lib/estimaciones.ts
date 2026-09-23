@@ -20,6 +20,11 @@ import {
 
 /** Número de fases de la instalación. 1 = monofásico (casa/depto), 3 = trifásico (empresa). */
 export type Fases = 1 | 3;
+export type ModoCotizacion = 'residencial' | 'detallada';
+
+const RENDIMIENTO_DETALLADO_KWH_KWP_ANUAL = 1_440;
+const TARIFA_DETALLADA_CLP_KWH = 150;
+const TARIFA_RESIDENCIAL_INPUT_CLP_KWH = 250;
 
 // ---------------------------------------------------------------------------
 // Formateo
@@ -184,19 +189,24 @@ export function calcularCotizacion(params: {
   region: Region;
   /** Fases de la instalación (1 monofásico / 3 trifásico). Default 1. */
   fases?: Fases;
+  /** Empresa/departamento usan una estimación comercial simple y sin panelización visible. */
+  modo?: ModoCotizacion;
   config?: ConfigCotizador;
   generacionPorZona?: GeneracionPorZona;
 }): CotizacionCompleta | null {
   const { montoClp, consumoKwh, unidad, region } = params;
   const cfg = params.config ?? CONFIG_DEFAULT;
   const fases: Fases = params.fases ?? cfg.variablesVinculantesKwp.fasesPredeterminadas;
+  const modo: ModoCotizacion = params.modo ?? 'residencial';
   const genZona = params.generacionPorZona ?? GENERACION_POR_ZONA;
   const precioIny = precioInyeccionKwhClp(cfg);
   const panelActivo = getPanelActivo(cfg);
 
   // 1. Calcular consumo mensual en kWh (aplica proyección del Excel: INPUT!B18)
   const consumoKwhMensual =
-    unidad === 'kwh'
+    modo === 'detallada'
+      ? unidad === 'kwh' ? consumoKwh : montoClp != null ? montoClp / TARIFA_DETALLADA_CLP_KWH : null
+      : unidad === 'kwh'
       ? (consumoKwh != null ? consumoKwh * cfg.proyeccionConsumo : null)
       : montoClp != null
       ? (montoClp / cfg.precioKwhClp) * cfg.proyeccionConsumo
@@ -207,7 +217,7 @@ export function calcularCotizacion(params: {
   const gastoCuentaClpMensual =
     unidad === 'clp'
       ? (montoClp ?? 0)
-      : consumoKwhMensual * cfg.precioKwhClp;
+      : (consumoKwh ?? 0) * (modo === 'detallada' ? TARIFA_DETALLADA_CLP_KWH : TARIFA_RESIDENCIAL_INPUT_CLP_KWH);
 
   const consumoKwhAnual = consumoKwhMensual * 12;
 
@@ -218,26 +228,32 @@ export function calcularCotizacion(params: {
   const genAnual = genZona[region].reduce((a, b) => a + b, 0); // kWh/kWp/año
   const factorGen = getFactorGeneracion(cfg);
 
-  const capacidadKwpTeorica = (consumoKwhAnual * factorGen) / genAnual;
+  const capacidadKwpTeorica = modo === 'detallada'
+    ? unidad === 'clp'
+      ? ((montoClp ?? 0) * 12) / TARIFA_DETALLADA_CLP_KWH / RENDIMIENTO_DETALLADO_KWH_KWP_ANUAL
+      : ((consumoKwh ?? 0) * 12) / RENDIMIENTO_DETALLADO_KWH_KWP_ANUAL
+    : (consumoKwhAnual * factorGen) / genAnual;
   let numeroPaneles = Math.max(cfg.minPaneles, Math.ceil(capacidadKwpTeorica / panelKwp));
 
   // MAIN!C31 sube la cantidad al par siguiente cuando hay gasto eléctrico
   // (las mesas se arman de a dos paneles). Sin esto el cotizador entregaba
   // sistemas de 9, 11, 13 o 15 paneles que el libro nunca produce.
-  if (cfg.redondearPanelesAPar && numeroPaneles % 2 === 1) {
+  if (modo === 'residencial' && cfg.redondearPanelesAPar && numeroPaneles % 2 === 1) {
     numeroPaneles += 1;
   }
 
   // Tope de paneles en monofásico (Excel COTBACK!D53). En trifásico (empresa)
   // no aplica el límite, por eso el flujo empresa dimensiona sistemas mayores.
-  if (fases === 1) {
+  if (modo === 'residencial' && fases === 1) {
     numeroPaneles = Math.min(numeroPaneles, cfg.maxPanelesMonofasico);
   }
 
-  const capacidadKwp = numeroPaneles * panelKwp;
+  const capacidadKwp = modo === 'detallada' ? capacidadKwpTeorica : numeroPaneles * panelKwp;
   const inversorActivo = getInversorParaSistema(cfg, capacidadKwp, fases, numeroPaneles);
 
-  const generacionMensualKwh = genZona[region].map((month) => month * capacidadKwp);
+  const generacionMensualKwh = modo === 'detallada'
+    ? Array.from({ length: 12 }, () => capacidadKwp * RENDIMIENTO_DETALLADO_KWH_KWP_ANUAL / 12)
+    : genZona[region].map((month) => month * capacidadKwp);
   const autoconsumoMensualKwh = generacionMensualKwh.map((generation) =>
     Math.min(generation, consumoKwhMensual * cfg.limiteAutoconsumo)
   );
@@ -269,8 +285,10 @@ export function calcularCotizacion(params: {
   };
 
   // 3. Calcular ahorros (año 1, en CLP)
-  const ahorroAutoconsumoAnual = autoconsumoAnualKwh * cfg.precioKwhClp;
-  const ahorroInyeccionAnual = inyeccionAnualKwh * precioIny;
+  const ahorroAutoconsumoAnual = modo === 'detallada'
+    ? capacidadKwp * RENDIMIENTO_DETALLADO_KWH_KWP_ANUAL * TARIFA_DETALLADA_CLP_KWH
+    : autoconsumoAnualKwh * cfg.precioKwhClp;
+  const ahorroInyeccionAnual = modo === 'detallada' ? 0 : inyeccionAnualKwh * precioIny;
   const ahorroTotalAnual = ahorroAutoconsumoAnual + ahorroInyeccionAnual;
   const ahorroMensualProm = ahorroTotalAnual / 12;
 
@@ -496,6 +514,7 @@ export function estimarRapido(params: {
   unidad: 'clp' | 'kwh';
   region: Region;
   fases?: Fases;
+  modo?: ModoCotizacion;
   config?: ConfigCotizador;
   generacionPorZona?: GeneracionPorZona;
 }): EstimacionRapida | null {

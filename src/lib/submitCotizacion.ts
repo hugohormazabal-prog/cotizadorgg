@@ -1,7 +1,7 @@
 import { getSupabaseClient, isSupabaseConfigured } from './supabase';
 import { CotizadorState } from './types';
 import { calcularCotizacion } from './estimaciones';
-import { getActiveConfigBundle, fasesPorTipoPropiedad } from './config';
+import { getActiveConfigBundle, fasesPorTipoPropiedad, requiereCotizacionDetallada } from './config';
 import type { Region } from './config';
 
 export interface SubmitResult {
@@ -24,11 +24,13 @@ export interface SubmitResult {
 export async function submitCotizacion(data: CotizadorState): Promise<SubmitResult> {
   const activeBundle = getActiveConfigBundle();
   const region = data.ubicacion.region as Region | '';
+  const detallada = requiereCotizacionDetallada(data.propiedad.tipoPropiedad);
   const estimacion = region
     ? calcularCotizacion({
         ...data.consumo,
         region,
         fases: fasesPorTipoPropiedad(data.propiedad.tipoPropiedad),
+        modo: detallada ? 'detallada' : 'residencial',
         config: activeBundle.config,
         generacionPorZona: activeBundle.genZona,
       })
@@ -52,10 +54,10 @@ export async function submitCotizacion(data: CotizadorState): Promise<SubmitResu
     consumo_kwh: data.consumo.consumoKwh,
     estimacion_consumo_kwh_mensual: estimacion?.consumoKwhMensual ?? null,
     estimacion_capacidad_kwp: estimacion?.sistema.capacidadKwp ?? null,
-    estimacion_paneles: estimacion?.sistema.numeroPaneles ?? null,
+    estimacion_paneles: detallada ? null : estimacion?.sistema.numeroPaneles ?? null,
     estimacion_ahorro_mensual_clp: estimacion?.ahorro.ahorroMensualProm ?? null,
-    estimacion_precio_proyecto_clp: estimacion?.precioProyectoClp ?? null,
-    estimacion_payback_anios: estimacion?.paybackAnios ?? null,
+    estimacion_precio_proyecto_clp: detallada ? null : estimacion?.precioProyectoClp ?? null,
+    estimacion_payback_anios: detallada ? null : estimacion?.paybackAnios ?? null,
     config_version: activeBundle.version || null,
     config_snapshot: {
       schemaVersion: activeBundle.config.schemaVersion,

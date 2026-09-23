@@ -151,7 +151,7 @@ function descripcionHtml(lead: LeadCotizador): string {
     ['Dirección', lead.direccion],
     ['Región', lead.region],
     ['Consumo declarado', lead.consumoTexto],
-    ['Sistema sugerido', lead.capacidadKwp != null ? `${lead.capacidadKwp} kWp (${lead.numeroPaneles ?? '?'} paneles)` : null],
+    ['Sistema sugerido', lead.capacidadKwp != null ? `${lead.capacidadKwp} kWp${lead.numeroPaneles != null ? ` (${lead.numeroPaneles} paneles)` : ''}` : null],
     ['Ahorro mensual estimado', lead.ahorroMensualClp != null ? clp(lead.ahorroMensualClp) : null],
     ['Precio proyecto (IVA incl.)', !lead.requiereDetalle && lead.precioProyectoClp != null ? clp(lead.precioProyectoClp) : null],
     ['Payback', !lead.requiereDetalle && lead.paybackAnios != null ? `${lead.paybackAnios.toFixed(1)} años` : null],
